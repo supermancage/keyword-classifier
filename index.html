@@ -1,0 +1,2450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>关键词分类工具 · 同程旅游</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+  <style>
+    :root {
+      --bg: #f7f8fc;
+      --card: #ffffff;
+      --primary: #1a73e8;
+      --primary-light: #e8f0fe;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --green: #10b981;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --purple: #8b5cf6;
+      --teal: #0d9488;
+      --pink: #ec4899;
+      --amber: #f59e0b;
+      --sky: #0ea5e9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+    header { text-align: center; margin-bottom: 32px; }
+    header h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+    header p { color: var(--text-muted); font-size: 14px; }
+
+    .card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+
+    /* ── 输入区 ── */
+    .input-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tab-btn { padding: 6px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); font-size: 13px; cursor: pointer; transition: all .15s; }
+    .tab-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .tab-btn:hover:not(.active) { border-color: var(--primary); color: var(--primary); }
+
+    textarea { width: 100%; height: 180px; border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; resize: vertical; font-family: monospace; outline: none; transition: border-color .15s; }
+    textarea:focus { border-color: var(--primary); }
+
+    .file-area { border: 2px dashed var(--border); border-radius: 8px; padding: 32px; text-align: center; cursor: pointer; transition: all .15s; }
+    .file-area:hover, .file-area.dragover { border-color: var(--primary); background: var(--primary-light); }
+    .file-area input { display: none; }
+    .file-area .icon { font-size: 32px; margin-bottom: 8px; }
+    .file-area p { font-size: 14px; color: var(--text-muted); }
+    .file-area .filename { font-weight: 600; color: var(--primary); margin-top: 4px; }
+
+    .upload-row { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
+    .upload-row input[type="file"] { font-size: 13px; }
+    .file-info { font-size: 13px; color: var(--text-muted); }
+
+    .col-config { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .col-config label { font-size: 12px; color: var(--text-muted); }
+    .col-config input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+
+    .actions { display: flex; gap: 10px; margin-top: 14px; align-items: center; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #1557b0; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-outline { background: var(--card); color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+    .file-info-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--green); background: #d1fae5; padding: 4px 10px; border-radius: 20px; }
+
+    /* ── 统计卡片 ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 16px; text-align: center; }
+    .stat-card .num { font-size: 28px; font-weight: 700; }
+    .stat-card .label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .stat-card .sub { font-size: 11px; color: var(--text-muted); }
+
+    .l1-badge {
+      display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .l1-badge.hotel { background: #dbeafe; color: #1d4ed8; }
+    .l1-badge.hotel-intl { background: #ede9fe; color: #7c3aed; }
+    .l1-badge.flight { background: #d1fae5; color: #065f46; }
+    .l1-badge.flight-intl { background: #fef3c7; color: #92400e; }
+    .l1-badge.scenic { background: #fee2e2; color: #991b1b; }
+    .l1-badge.train { background: #fce7f3; color: #9d174d; }
+  .l1-badge.unclassified { background: #f3f4f6; color: #6b7280; }
+
+    .l2-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #f3f4f6; color: var(--text-muted); }
+
+    /* ── 图表区 ── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .chart-card { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
+    .chart-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+    .chart-wrap { position: relative; height: 240px; }
+
+    /* ── 表格 ── */
+    .table-toolbar { display: flex; gap: 10px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
+    .search-box { flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; }
+    .search-box:focus { border-color: var(--primary); }
+    .filter-group { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--card); font-size: 12px; cursor: pointer; transition: all .1s; }
+    .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .tbl-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: #f9fafb; }
+    th { padding: 10px 12px; text-align: left; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+    tr:hover td { background: #f9fafb; }
+    tr:last-child td { border-bottom: none; }
+    td.num { text-align: right; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+    .pagination { display: flex; gap: 6px; align-items: center; margin-top: 12px; justify-content: center; }
+    .page-btn { padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); font-size: 12px; cursor: pointer; }
+    .page-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .page-info { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Loading ── */
+    .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,.85); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+
+    /* ── 筛选器 ── */
+    .filter-section { background: var(--card); border-radius: 12px; border: 1px solid var(--border); padding: 20px; margin-bottom: 20px; }
+    .filter-section-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+    .filter-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+    .filter-row:last-child { margin-bottom: 0; }
+    .filter-label { font-size: 12px; color: var(--text-muted); min-width: 60px; }
+    .filter-select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; min-width: 140px; background: var(--card); }
+    .filter-select:focus { border-color: var(--primary); outline: none; }
+    .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+    .filter-tag { padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); font-size: 12px; cursor: pointer; transition: all .1s; }
+    .filter-tag:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-tag.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .filter-tag.disabled { opacity: 0.4; cursor: not-allowed; }
+    .hidden { display: none !important; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+    .mb-4 { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <h1>🔍 关键词分类工具</h1>
+    <p>同程旅游业务线 · 一级 6 类 / 二级意图词包 · v5.0</p>
+  </header>
+
+  <!-- 输入区 -->
+  <div class="card mb-4">
+    <div class="card-title">📥 输入关键词</div>
+    <div class="input-tabs">
+      <button class="tab-btn active" data-tab="paste" onclick="switchTab('paste')">📝 粘贴关键词</button>
+      <button class="tab-btn" data-tab="upload" onclick="switchTab('upload')">📁 上传 Excel</button>
+    </div>
+
+    <!-- 粘贴模式 -->
+    <div id="tab-paste">
+      <textarea id="kw-text" placeholder="每行一个关键词，例如：&#10;上海酒店推荐&#10;北京故宫门票&#10;五一机票特价&#10;杭州旅游攻略"></textarea>
+    </div>
+
+    <!-- 上传模式 -->
+    <div id="tab-upload" class="hidden">
+      <div class="file-area" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📁</div>
+        <p>点击上传 Excel 文件 或 拖拽文件到这里</p>
+        <p style="font-size:12px;color:#9ca3af;margin-top:4px;">支持 .xlsx / .xls，一行一个关键词</p>
+        <div class="filename" id="filename-display"></div>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onclick="event.stopPropagation()">
+      </div>
+      <div class="col-config">
+        <div><label>关键词所在列 (1-based)</label><input type="number" id="col-kw" value="1" min="1"></div>
+        <div><label>花费所在列 (可选)</label><input type="number" id="col-cost" value="2" min="1"></div>
+        <div><label>曝光所在列 (可选)</label><input type="number" id="col-impression" value="3" min="1"></div>
+        <div><label>点击所在列 (可选)</label><input type="number" id="col-click" value="4" min="1"></div>
+        <div><label>从第几行开始读取</label><input type="number" id="row-start" value="2" min="1"></div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-run" onclick="runClassify()">🚀 开始分类</button>
+      <button class="btn btn-outline" id="btn-sample" onclick="loadSample()">📌 加载示例数据</button>
+      <span id="file-info" class="file-info"></span>
+    </div>
+  </div>
+
+  <!-- 结果区 -->
+  <div id="result-area" class="hidden">
+
+    <!-- 统计卡片 -->
+    <div class="stats-row">
+      <div class="stat-card"><div class="num" id="stat-total">0</div><div class="label">关键词总数</div></div>
+      <div class="stat-card"><div class="num" id="stat-l1">0</div><div class="label">一级分类数</div></div>
+      <div class="stat-card"><div class="num" id="stat-l2">0</div><div class="label">二级分类数</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--green)" id="stat-time">0ms</div><div class="label">处理耗时</div></div>
+    </div>
+
+    <!-- 图表 -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>📊 一级分类分布</h3>
+        <div class="chart-wrap"><canvas id="chart-l1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>📈 二级分类占比（Top 15）</h3>
+        <div class="chart-wrap"><canvas id="chart-l2"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 数据分析模块 -->
+    <div class="card mb-4" id="analysis-section">
+      <div class="card-title">📊 数据分析（按业务线）</div>
+      <div class="analysis-tabs" style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="tab-btn active" onclick="switchAnalysisTab('cost')" data-analysis="cost">💰 花费分析</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('impression')" data-analysis="impression">👁 曝光分析</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('click')" data-analysis="click">🖱 点击分析</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('efficiency')" data-analysis="efficiency">📈 效率分析</button>
+      </div>
+      
+      <!-- 花费分析 -->
+      <div id="analysis-cost" class="analysis-content">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-cost"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-cost">
+            <thead>
+              <tr><th>一级分类</th><th>关键词数</th><th>总花费</th><th>花费占比</th><th>平均花费</th><th>曝光量</th><th>点击量</th><th>CPC</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 曝光分析 -->
+      <div id="analysis-impression" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-impression"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-impression">
+            <thead>
+              <tr><th>一级分类</th><th>关键词数</th><th>总曝光</th><th>曝光占比</th><th>平均曝光</th><th>点击量</th><th>CTR</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 点击分析 -->
+      <div id="analysis-click" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-click"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-click">
+            <thead>
+              <tr><th>一级分类</th><th>关键词数</th><th>总点击</th><th>点击占比</th><th>平均点击</th><th>花费</th><th>CPC</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 效率分析 -->
+      <div id="analysis-efficiency" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-efficiency"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-efficiency">
+            <thead>
+              <tr><th>一级分类</th><th>关键词数</th><th>CTR</th><th>CPC</th><th>花费占比</th><th>曝光占比</th><th>点击占比</th><th>效率评分</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 交叉分析模块：业务线 × 词包 -->
+    <div class="card mb-4" id="cross-analysis-section">
+      <div class="card-title">🔀 交叉分析（业务线 × 词包）</div>
+      
+      <!-- 筛选器 -->
+      <div class="cross-filter-bar" style="background:#f9fafb;border-radius:8px;padding:12px;margin-bottom:16px;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">业务线:</span>
+          <div id="cross-filter-l1" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span style="color:#9ca3af;font-size:12px;">（请先上传文件）</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">词包:</span>
+          <div id="cross-filter-l2" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span style="color:#9ca3af;font-size:12px;">（请先上传文件）</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">指标:</span>
+          <select id="cross-metric-select" onchange="renderCrossAnalysis()" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+            <option value="count">关键词数量</option>
+            <option value="cost">花费</option>
+            <option value="impression">曝光量</option>
+            <option value="click">点击量</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="efficiency">效率评分</option>
+          </select>
+          <button onclick="clearCrossFilters()" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;font-size:12px;cursor:pointer;">🗑 清除筛选</button>
+        </div>
+      </div>
+      
+      <!-- 数据概览卡片 -->
+      <div id="cross-summary-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;"></div>
+      
+      <!-- 图表区域 -->
+      <div class="charts-grid" style="grid-template-columns:1fr 1fr;">
+        <div class="chart-card">
+          <h3 style="font-size:14px;margin-bottom:12px;">📊 业务线维度</h3>
+          <div class="chart-wrap" style="height:260px;"><canvas id="chart-cross-l1"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <h3 style="font-size:14px;margin-bottom:12px;">📊 词包维度</h3>
+          <div class="chart-wrap" style="height:260px;"><canvas id="chart-cross-l2"></canvas></div>
+        </div>
+      </div>
+      
+      <!-- 热力图 -->
+      <div class="chart-card" style="margin-top:16px;">
+        <h3 style="font-size:14px;margin-bottom:12px;">🔥 交叉热力图</h3>
+        <div id="cross-heatmap" style="overflow-x:auto;"></div>
+      </div>
+      
+      <!-- 详细表格 -->
+      <div class="card" style="margin-top:16px;padding:16px;">
+        <h3 style="font-size:14px;margin-bottom:12px;">📋 详细数据</h3>
+        <div class="tbl-wrap">
+          <table id="table-cross-detail">
+            <thead>
+              <tr id="cross-detail-header">
+                <th>业务线</th>
+                <th>词包</th>
+                <th>关键词数</th>
+                <th>花费</th>
+                <th>曝光</th>
+                <th>点击</th>
+                <th>CTR</th>
+                <th>CPC</th>
+                <th>效率评分</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 关键词词云 -->
+    <div class="card mb-4" id="wordcloud-section">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>☁️ 关键词词云</span>
+        <select id="wc-metric-select" onchange="renderWordCloud()" style="padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;color:var(--text);background:var(--card);">
+          <option value="cost">按消耗</option>
+          <option value="impression">按展示</option>
+          <option value="click">按点击</option>
+        </select>
+      </div>
+      <div class="filter-row" style="margin-bottom:8px;">
+        <span class="filter-label">业务线:</span>
+        <div class="filter-tags" id="wc-filter-l1"></div>
+        <button class="btn btn-outline" style="padding:3px 10px;font-size:11px;margin-left:8px;" onclick="clearWcFilters()">清除</button>
+      </div>
+      <div class="filter-row" style="margin-bottom:14px;">
+        <span class="filter-label">词包:</span>
+        <div class="filter-tags" id="wc-filter-l2"></div>
+      </div>
+      <div id="wordcloud-wrap" style="position:relative;width:100%;height:380px;border:1px dashed var(--border);border-radius:8px;background:var(--bg);">
+        <canvas id="wordcloud-canvas"></canvas>
+        <div id="wordcloud-tooltip" style="display:none;position:absolute;padding:8px 12px;background:#1f2937;color:#fff;border-radius:8px;font-size:12px;pointer-events:none;z-index:100;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.15);"></div>
+      </div>
+    </div>
+
+    <!-- 明细表格 -->
+    <div class="card mb-4">
+      <div class="card-title">📋 分类明细</div>
+
+      <div class="table-toolbar">
+        <input type="text" class="search-box" id="search-box" placeholder="搜索关键词…" oninput="renderTable(1)">
+        <button class="btn btn-outline" style="padding:6px 12px;font-size:12px;" onclick="exportCSV()">⬇ 导出 CSV</button>
+      </div>
+      
+      <!-- 筛选器 -->
+      <div class="filter-section" id="filter-section">
+        <div class="filter-section-title">🔍 筛选器</div>
+        <div class="filter-row">
+          <span class="filter-label">一级分类:</span>
+          <div class="filter-tags" id="filter-l1-tags"></div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">二级分类:</span>
+          <div class="filter-tags" id="filter-l2-tags"></div>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">国家:</span>
+          <select class="filter-select" id="filter-country" onchange="renderTable(1)">
+            <option value="">全部国家</option>
+          </select>
+          <span class="filter-label" style="margin-left:12px;">城市:</span>
+          <select class="filter-select" id="filter-city" onchange="renderTable(1)">
+            <option value="">全部城市</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="clearFilters()">🗑 清除筛选</button>
+        </div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>关键词</th>
+              <th>一级分类</th>
+              <th>二级分类</th>
+              <th>国家</th>
+              <th>城市</th>
+              <th>花费</th>
+              <th>曝光</th>
+              <th>点击</th>
+              <th>CTR</th>
+              <th>CPC</th>
+            </tr>
+          </thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div>分类中…</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// 关键词库（与 classify.py v4.1 保持一致）
+// ═══════════════════════════════════════════════════
+
+const TC_BRANDS = ['同程','同程旅行','同程艺龙','LY.COM','ly.com'];
+const COMPETITOR_BRANDS = ['携程','去哪儿','美团','闲鱼','飞猪','途牛','马蜂窝','驴妈妈','艺龙','Booking','Agoda','Expedia','Airbnb','爱彼迎','Hotels','Trip','booking','agoda','expedia','airbnb','trivago'];
+const HOTEL_CHAINS = ['如家','锦江','汉庭','7天','全季','亚朵','维也纳','希尔顿','万豪','洲际','香格里拉','喜来登','凯悦','皇冠','丽思','索菲特','诺富特','桔子','桔子水晶','宜必思','速8','格林豪泰','布丁','尚客优','开元','君澜','雷迪森','金陵','花间堂','悦榕庄','万枫','福朋','雅乐轩','艾美','美居','美爵','锦江之星','如家商旅','如家精选','素柏','白玉兰','欢朋','枫渡','丽枫','喆啡','希岸','潮漫','ZMAX','云上四季','康铂','美豪','书香世家','书香府邸','华住会','万豪旅享家','洲际优悦会','希尔顿荣誉客会','凯悦天地','雅高心悦界','锦江会员','如家会员','亚朵会员'];
+const AIRLINE_BRANDS = ['国航','南航','东航','海航','川航','厦航','深航','山航','春秋航空','吉祥航空','首都航空','九元航空','西部航空','长安航空','桂林航空','天津航空','祥鹏航空','联合航空','华夏航空','成都航空','江西航空','中国联航','航旅纵横','非常准','飞常准','航班管家','国泰航空','港龙航空','澳门航空','长荣航空','中华航空','全日空','日航','大韩航空','韩亚航空','济州航空','真航空','泰航','亚航','酷航','虎航','越捷航空','狮航','新航','马航','达美航空','美联航','美国航空','阿联酋航空','卡塔尔航空','土耳其航空','英国航空','汉莎航空','法航','荷航','瑞士航空','澳洲航空','新西兰航空'];
+const FLIGHT_PRODUCTS = ['随心飞','次卡','机票盲盒','盲盒','白金卡','金鹏卡','机票券','无限飞','青春卡','敬老卡','家庭卡','套票','往返次卡','飞行卡','机票包','机酒套餐'];
+const FLIGHT_SCENARIOS = ['托运','行李额','行李托运','随身行李','行李尺寸','行李重量','商务舱','头等舱','经济舱','公务舱','超级经济舱','选座','值机','网上值机','在线值机','自助值机','第一次坐飞机','第一次坐机','第一次乘机','第一次做飞机','登机流程','坐飞机流程','乘机流程','飞机餐','餐食','机上wifi','机上娱乐','机票退改','退票','改签','误机','漏乘','延误险','航意险','飞行险','航空险','退改签','电子客票','行程单','儿童机票','婴儿机票','留学生机票','学生机票','红眼航班','廉航','低成本航空','中转','转机','经停','联程','入境','过境签','中转签','免签','落地签','飞机选座','飞机行李'];
+const STATION_KEYWORDS = ['机场','火车站','高铁站','南站','北站','东站','西站','虹桥','浦东','萧山','白云','宝安','天府','江北','咸阳','长水','禄口','龙嘉','遥墙','新桥','正定','武宿','昌北'];
+const HOTEL_KEYWORDS = ['酒店','住宿','宾馆','旅馆','民宿','客栈','旅社','旅店','旅舍','套房','标间','大床房','双床房','家庭房','亲子房','入住','退房','续住','预订','订房','住哪','住店','度假村','公寓','别墅','木屋','帐篷','温泉酒店','度假酒店','商务酒店','精品酒店','主题酒店','住宿推荐','住哪里','附近住宿','周边住宿','附近酒店','周边酒店','青旅','背包客','过夜','大促','酒店优惠','浴缸','泳池','接机','里白酒店','紫玄酒店','亲子房','滑梯亲子房'];
+const FLIGHT_KEYWORDS = ['机票','航班','飞机','航空','特价机票','打折机票','便宜机票','机票比价','往返机票','单程机票','联程','机票预订','订机票','买机票','机票查询','国际航班','国内航班','民航','飞往','航班号','起飞','降落','落地','舱位','座位','候机','安检','通关','边检','候补','超售','客票'];
+const FLIGHT_BUSINESS_TERMS = ['燃油税','燃油附加费','机建费','机建燃油','机场建设费','基建燃油','基建费','航司','航空公司','里程','积分','会员','升舱','降舱','舱位升级','里程兑换','积分兑换','航段','累积里程','累积积分','常旅客','飞行里程','航空里程','会员日','会员价','会员专享'];
+const TRAIN_KEYWORDS = ['火车票','高铁票','动车票','火车','高铁','动车','列车','车票','硬座','软座','硬卧','软卧','无座','二等座','一等座','商务座','车次','时刻表','列车时刻','抢票','候补','铁路','铁道','城际','城铁','地铁'];
+const SCENIC_FEATURE_WORDS = ['景区','景点','门票','古镇','古城','博物馆','纪念馆','展览馆','美术馆','科技馆','寺','庙','观','教堂','清真寺','长城','故宫','兵马俑','西湖','黄山','泰山','九寨沟','张家界','迪士尼','环球影城','欢乐谷','长隆','方特','海洋馆','水族馆','动物园','游乐园','乐园','缆车','索道','观光车','演出','表演','实景剧','灯光秀','瀑布','溶洞','预约','购票','免票','半票','开放时间','票价','门票价格'];
+const FESTIVAL_KEYWORDS = ['五一','国庆','春节','清明','端午','中秋','元旦','寒假','暑假','黄金周','小长假','情人节','七夕','圣诞','跨年','过年','除夕','元宵','春游','秋游'];
+const HOTEL_INTENT_IN_TRAIN = ['住','酒店','住宿','民宿','公寓','别墅','客栈','入住','退房','性价比'];
+const PLATFORM_12306 = ['12306'];
+// 国际旅游场景词（仅包含真正的旅游体验/消费场景，排除出行实用信息词）
+const INTL_SCENE_WORDS = ['免税','退税','换汇','代购','演唱会','购物','必买','sasa','乐天','免税店','药妆','化妆品','血拼','奥特莱斯','签证','入境','过关','通关','货币','汇率','小费','必吃','美食','小吃','夜市','餐厅推荐'];
+// 国际出行实用信息词（打车/租车/天气等，不作为词包判断依据，避免阻断目的地识别）
+const INTL_PRACTICAL_WORDS = ['打车','租车','当地交通','天气','最佳时间','几月去','什么时候去','安全','注意事项','电话卡','sim卡','拍照','网红'];
+const INTL_SCENIC_WORDS = ['乐天世界','环球影城','圣托里尼','埃菲尔','卢浮宫','大英博物馆','浅草寺','明洞','暹罗天地','鱼尾狮','自由女神','泰姬陵','金字塔','富士山','阿尔卑斯','峡湾','极光','吴哥窟','蒲甘','大堡礁','马丘比丘'];
+
+// 热门度假目的地/景区社区名（不含城市名但本身是旅游目的地）
+const DESTINATION_NAMES = ['阿那亚','金町湾','日月湾','海棠湾','亚龙湾','三亚湾','大东海','清水湾','石梅湾','神州半岛','蜈支洲岛','西岛','分界洲岛','南湾猴岛','涠洲岛','银滩','侨港','千岛湖','太湖','西湖','瘦西湖','洱海','滇池','泸沽湖','抚仙湖','莫干山','安吉','桐庐','溧阳','德清','北戴河','南戴河','黄金海岸','长隆','海昌','融创','欢乐谷','方特','亚布力','北大湖','松花湖','长白山','牛首山','灵山','普陀山','九华山','峨眉山','武当山','青城山','泰山','华山','黄山','庐山','雁荡山','武夷山','四姑娘山','稻城亚丁','九寨沟','黄龙','毕棚沟','海螺沟','西双版纳','香格里拉','凤凰古城','丽江古城','乌镇','西塘','南浔','周庄','同里','朱家角','鼓浪屿','曾厝垵','双月湾','巽寮湾','红海湾','武功山','三清山','龙虎山','千户苗寨','三坊七巷','官也街','窑湖小镇','宜兴窑湖小镇','罗浮山','泡泡玛特城市公园','陵水','宣城','宜春','银河综艺馆','老君山','螺髻山','东极岛','南澳岛','阿勒泰','中华恐龙园','宽窄巷子','平江路','姑弄村','甲根坝','喀纳斯','玄武湖','顺德','锦州','忻州','本溪','望仙谷','圣水洞','赛里木湖','松阳','亚庇','明洞'];
+
+// 泛旅游意图词（无明确业务信号但有旅游需求）
+const GENERIC_TRAVEL_INTENT = ['去哪','去哪玩','去哪旅游','去哪里','去哪里玩','去哪里旅游','适合去','适合去哪','适合去哪里','适合旅游','适合旅行','适合度假','旅游去','旅行去','度假去','假期去哪','放假去哪','周末去哪','暑假去哪','寒假去哪','周边游','短途游','周边旅游','短途旅游','冷门城市','冷门景点','冷门旅游','小众旅游','小众目的地','宝藏旅游','自驾游','自驾旅游','房车','露营','旅游推荐','旅行推荐','目的地推荐','出行','出游','出去玩','亲子旅游','亲子游','带爸妈','带娃','毕业旅行','毕业游','蜜月旅行','温泉旅游','温泉度假','泡温泉','私汤','海边旅游','海边度假','海岛游','有雪的地方','滑雪','两天一夜','三天两夜','一周旅游','美食推荐','美食攻略','早茶','穷游','背包客'];
+
+// 国际目的地词（≥2字，避免单字误匹配）
+const INTERNATIONAL_KEYWORDS = ['境外','国外','海外','国际','出境','出国','日本','韩国','泰国','越南','新加坡','马来西亚','印尼','菲律宾','柬埔寨','缅甸','老挝','印度','尼泊尔','斯里兰卡','马尔代夫','迪拜','阿联酋','卡塔尔','沙特','以色列','土耳其','英国','法国','德国','意大利','西班牙','葡萄牙','荷兰','比利时','瑞士','奥地利','希腊','捷克','匈牙利','波兰','瑞典','挪威','芬兰','丹麦','冰岛','爱尔兰','俄罗斯','美国','加拿大','墨西哥','巴西','阿根廷','秘鲁','智利','古巴','澳大利亚','新西兰','斐济','埃及','南非','摩洛哥','肯尼亚','坦桑尼亚','首尔','东京','大阪','京都','釜山','济州','曼谷','清迈','普吉','巴厘岛','岘港','芽庄','吉隆坡','槟城','马尼拉','暹粒','河内','胡志明','金边','伦敦','巴黎','罗马','米兰','威尼斯','佛罗伦萨','巴塞罗那','马德里','柏林','慕尼黑','法兰克福','阿姆斯特丹','布鲁塞尔','苏黎世','维也纳','布拉格','布达佩斯','纽约','洛杉矶','旧金山','拉斯维加斯','夏威夷','温哥华','多伦多','悉尼','墨尔本','伊斯坦布尔','圣托里尼','欧洲','北美','南美','东南亚','中亚','非洲','大洋洲','中东','港澳','香港','澳门','港迪','台北','高雄','台南','台中','花莲','九份','台湾','济州岛','冲绳','苏梅岛','马六甲'];
+
+// 国内城市
+const CITIES = ['北京','上海','广州','深圳','成都','重庆','杭州','武汉','西安','南京','长沙','苏州','天津','郑州','青岛','大连','沈阳','哈尔滨','长春','济南','昆明','贵阳','南宁','海口','三亚','厦门','福州','泉州','南昌','合肥','太原','石家庄','兰州','银川','西宁','呼和浩特','乌鲁木齐','拉萨','无锡','宁波','温州','佛山','东莞','珠海','中山','惠州','扬州','徐州','常州','绍兴','嘉兴','金华','台州','洛阳','开封','安阳','许昌','南阳','桂林','柳州','北海','梧州','大理','丽江','香格里拉','西双版纳','腾冲','曲靖','玉溪','张家界','凤凰','岳阳','衡阳','九江','景德镇','婺源','赣州','上饶','吉安','烟台','威海','日照','泰安','曲阜','承德','秦皇岛','唐山','保定','邯郸','襄阳','宜昌','恩施','十堰','遵义','安顺','凯里','铜仁','宜宾','泸州','乐山','绵阳','德阳','南充','达州','汕头','潮州','湛江','河源','清远','韶关','梅州','肇庆','阳江','茂名','丽水','衢州','舟山','湖州','连云港','盐城','淮安','宿迁','泰州','南通','镇江','安吉','莫干山','千岛湖','普陀山','九华山','五台山','李庄','阆中','平遥','博鳌','文昌','万宁','康定','甘孜','阿坝','攀枝花','湘潭','株洲','常德','益阳','郴州','邵阳','南平','龙岩','三明','漳州','莆田','延吉','吉林','芜湖','蚌埠','马鞍山','黄山','淄博','潍坊','临沂','聊城','德州','滨州','汕尾','揭阳','白银','天水','酒泉','嘉峪关','张掖','长治','大同','运城','晋中','临汾','菏泽','海南','云南','贵州','四川','湖南','湖北','江西','安徽','浙江','江苏','福建','广东','广西','山东','河南','河北','山西','陕西','甘肃','辽宁','吉林','黑龙江','内蒙古','新疆','西藏','青海','宁夏','川西','甘南','黔东南','湘西','闽南','粤东','胶东','辽东','信阳','汉中','渭南','楚雄','红河','文山','临沧','普洱','德宏','怒江','包头','鄂尔多斯','涠洲岛','六安'];
+
+// ═══════════════════════════════════════════════════
+// 分类函数
+// ═══════════════════════════════════════════════════
+
+function hasAny(kw, group) {
+  return group.some(w => kw.includes(w));
+}
+
+function isInternational(kw) {
+  // 排除连锁酒店品牌误判（维也纳/香格里拉等同时也是国际城市名）
+  if (hasAny(kw, HOTEL_CHAINS)) {
+    const intlIntent = ['免签','出境','境外','国外','海外','国际航班'];
+    if (!hasAny(kw, intlIntent)) return false;
+  }
+  return hasAny(kw, INTERNATIONAL_KEYWORDS) || hasAny(kw, INTL_CITIES_JS);
+}
+
+function hasCity(kw) {
+  return CITIES.some(c => kw.includes(c));
+}
+
+// 泛意图词（非地名），不应被识别为"包含国际城市/地名"
+const INTL_GENERIC_WORDS = ['境外','国外','海外','国际','出境','出国','境内','涉外'];
+
+function hasIntlCity(kw) {
+  // 只匹配真实地名：过滤掉泛意图词，避免"出国机票""国外买机票"误归目的地词
+  const hasRealGeoWord = INTERNATIONAL_KEYWORDS
+    .filter(w => w.length >= 2 && !INTL_GENERIC_WORDS.includes(w))
+    .some(w => kw.includes(w));
+  return hasRealGeoWord || hasAny(kw, INTL_CITIES_JS);
+}
+
+const FLIGHT_ROUTE_RE = /(\S{2,6})(飞|到|→|－|-|—)(\S{2,6})机票|从(\S{2,6})到(\S{2,6}).*机票|(\S{2,6})到(\S{2,6}).*飞机|(\S{2,6})(飞|到)(\S{2,6})航班/;
+
+function isFlightRoute(kw) {
+  return FLIGHT_ROUTE_RE.test(kw);
+}
+
+function hasScenicFeature(kw) {
+  return hasAny(kw, SCENIC_FEATURE_WORDS);
+}
+
+// ═══════════════════════════════════════════════════
+// 实体抽取：国家/城市
+// ═══════════════════════════════════════════════════
+
+const COUNTRY_MAP_JS = {
+  '日本':'日本','韩国':'韩国','泰国':'泰国','越南':'越南','新加坡':'新加坡',
+  '马来西亚':'马来西亚','菲律宾':'菲律宾','柬埔寨':'柬埔寨','缅甸':'缅甸','老挝':'老挝',
+  '印度':'印度','尼泊尔':'尼泊尔','斯里兰卡':'斯里兰卡','马尔代夫':'马尔代夫',
+  '阿联酋':'阿联酋','迪拜':'阿联酋','卡塔尔':'卡塔尔','沙特':'沙特','以色列':'以色列','土耳其':'土耳其',
+  '英国':'英国','法国':'法国','德国':'德国','意大利':'意大利','西班牙':'西班牙',
+  '葡萄牙':'葡萄牙','荷兰':'荷兰','比利时':'比利时','瑞士':'瑞士','奥地利':'奥地利',
+  '希腊':'希腊','捷克':'捷克','匈牙利':'匈牙利','波兰':'波兰','瑞典':'瑞典',
+  '挪威':'挪威','芬兰':'芬兰','丹麦':'丹麦','冰岛':'冰岛','爱尔兰':'爱尔兰','俄罗斯':'俄罗斯',
+  '美国':'美国','加拿大':'加拿大','墨西哥':'墨西哥','巴西':'巴西','阿根廷':'阿根廷','秘鲁':'秘鲁','智利':'智利','古巴':'古巴',
+  '澳大利亚':'澳大利亚','新西兰':'新西兰','斐济':'斐济',
+  '埃及':'埃及','南非':'南非','摩洛哥':'摩洛哥','肯尼亚':'肯尼亚','坦桑尼亚':'坦桑尼亚',
+  '香港':'中国','澳门':'中国','港迪':'中国','台湾':'中国','台北':'中国','高雄':'中国',
+};
+
+const INTL_CITY_COUNTRY_JS = {
+  '首尔':'韩国','釜山':'韩国','济州':'韩国','济州岛':'韩国',
+  '东京':'日本','大阪':'日本','京都':'日本','冲绳':'日本','北海道':'日本',
+  '曼谷':'泰国','清迈':'泰国','普吉':'泰国','苏梅岛':'泰国','芭提雅':'泰国',
+  '岘港':'越南','芽庄':'越南','河内':'越南','胡志明':'越南','富国岛':'越南',
+  '吉隆坡':'马来西亚','槟城':'马来西亚','马六甲':'马来西亚',
+  '马尼拉':'菲律宾','长滩岛':'菲律宾','宿务':'菲律宾',
+  '暹粒':'柬埔寨','金边':'柬埔寨',
+  '巴厘岛':'印尼','雅加达':'印尼',
+  '伦敦':'英国','巴黎':'法国','罗马':'意大利','米兰':'意大利','威尼斯':'意大利',
+  '佛罗伦萨':'意大利','巴塞罗那':'西班牙','马德里':'西班牙',
+  '柏林':'德国','慕尼黑':'德国','法兰克福':'德国',
+  '阿姆斯特丹':'荷兰','苏黎世':'瑞士','维也纳':'奥地利','布拉格':'捷克','布达佩斯':'匈牙利',
+  '纽约':'美国','洛杉矶':'美国','旧金山':'美国','拉斯维加斯':'美国','夏威夷':'美国',
+  '温哥华':'加拿大','多伦多':'加拿大',
+  '悉尼':'澳大利亚','墨尔本':'澳大利亚',
+  '伊斯坦布尔':'土耳其','圣托里尼':'希腊',
+  '暹罗天地':'泰国','暹罗':'泰国',
+  '亚庇':'马来西亚','明洞':'韩国',
+};
+
+const INTL_CITIES_JS = Object.keys(INTL_CITY_COUNTRY_JS).sort((a,b) => b.length - a.length);
+const COUNTRY_NAMES_JS = Object.keys(COUNTRY_MAP_JS).sort((a,b) => b.length - a.length);
+
+const POI_CITY_MAP_JS = {
+  '731遗址':'哈尔滨','798':'北京','798艺术区':'北京','CBD':'北京','七仙岭':'保亭','七宝老街':'上海',
+  '七彩丹霞':'张掖','七星岩':'肇庆','万山群岛':'珠海','万峰林':'黔西南','三亚免税城':'三亚',
+  '三亚凤凰机场':'三亚','三亚千古情':'三亚','三亚机场':'三亚','三亚湾':'三亚','三坊七巷':'福州',
+  '三峡':'宜昌','三峡大坝':'宜昌','三江源':'玉树','三清山':'上饶','三里屯':'北京','上下杭':'福州',
+  '上海中心':'上海','上海动物园':'上海','上海博物馆':'上海','上海城隍庙':'上海','上海机场':'上海',
+  '上海浦东机场':'上海','上海海洋水族馆':'上海','上海科技馆':'上海','上海虹桥机场':'上海',
+  '上海迪士尼':'上海','上海野生动物园':'上海','世博公园':'上海','世博园':'上海','世界之窗':'深圳',
+  '东京成田机场':'东京','东京机场':'东京','东京羽田机场':'东京','东京迪士尼':'东京',
+  '东北虎林园':'哈尔滨','东坡书院':'儋州','东寨港红树林':'海口','东山岛':'漳州','东山岭':'万宁',
+  '东方明珠':'上海','东湖':'武汉','东滩湿地':'上海','东澳岛':'珠海','东西涌':'深圳','东部华侨城':'深圳',
+  '两江四湖':'桂林','中关村':'北京','中华艺术宫':'上海','中国雪乡':'牡丹江',
+  '中国雷琼世界地质公园':'海口','中央大街':'哈尔滨','中山公园':'北京','中川机场':'兰州',
+  '丹霞山':'韶关','丽江三义机场':'丽江','丽江古城':'丽江','丽江机场':'丽江','义乌机场':'义乌',
+  '乌镇':'嘉兴','乌鲁木齐地窝堡机场':'乌鲁木齐','乌鲁木齐机场':'乌鲁木齐','乐山大佛':'乐山',
+  '九华山':'池州','九寨沟':'阿坝','九寨黄龙机场':'九寨沟','九曲溪':'南平','云水谣':'漳州',
+  '五公祠':'海口','五四广场':'青岛','五指山':'五指山','五道口':'北京','井冈山':'吉安',
+  '亚布力':'哈尔滨','亚布力滑雪场':'哈尔滨','亚龙湾':'三亚','京东大峡谷':'北京','什刹海':'北京',
+  '仁川机场':'首尔','伊宁机场':'伊宁','伊斯坦布尔机场':'伊斯坦布尔','伏尔加庄园':'哈尔滨',
+  '伦敦希思罗机场':'伦敦','伦敦机场':'伦敦','侨港':'北海','保利金町湾':'汕尾','傣族园':'西双版纳',
+  '克拉玛依机场':'克拉玛依','免税城':'三亚','八大关':'青岛','八廓街':'拉萨','八达岭长城':'北京',
+  '六盘水机场':'六盘水','兰州中川机场':'兰州','兰州机场':'兰州','关西机场':'大阪','兴义机场':'兴义',
+  '兴坪古镇':'桂林','兴隆热带植物园':'万宁','兵马俑':'西安','内排机场':'河内','冯小刚电影公社':'海口',
+  '冰雪大世界':'哈尔滨','凤凰古城':'湘西','凤凰岭':'三亚','凤凰机场':'三亚','凯里机场':'凯里',
+  '分界洲岛':'陵水','刘公岛':'威海','北京世界公园':'北京','北京动物园':'北京','北京园博园':'北京',
+  '北京大兴机场':'北京','北京机场':'北京','北京植物园':'北京','北京欢乐谷':'北京','北京海洋馆':'北京',
+  '北京路':'广州','北京野生动物园':'北京','北京首都机场':'北京','北大湖':'吉林','北大湖滑雪场':'吉林',
+  '北海公园':'北京','十堰机场':'十堰','十渡':'北京','千佛山':'济南','千古情':'三亚','千岛湖':'杭州',
+  '千年古盐田':'儋州','华山':'渭南','华清宫':'西安','华清池':'西安','南京机场':'南京',
+  '南京禄口机场':'南京','南京路':'上海','南京路步行街':'上海','南充机场':'南充','南充高坪机场':'南充',
+  '南华寺':'韶关','南宁吴圩机场':'南宁','南宁机场':'南宁','南山寺':'三亚','南山文化旅游区':'三亚',
+  '南昆山':'惠州','南昌昌北机场':'南昌','南昌机场':'南昌','南普陀寺':'厦门','南浔':'湖州',
+  '南湾猴岛':'陵水','南迦巴瓦峰':'林芝','南通兴东机场':'南通','南通机场':'南通','南锣鼓巷':'北京',
+  '博乐机场':'博乐','博鳌':'琼海','博鳌亚洲论坛':'琼海','厦门大学':'厦门','厦门机场':'厦门',
+  '厦门高崎机场':'厦门','双峰林场':'牡丹江','双廊':'大理','双月湾':'惠州','双流机场':'成都',
+  '古北水镇':'北京','古隆中':'襄阳','可可西里':'海西','台儿庄古城':'枣庄','台北机场':'台北',
+  '台北桃园机场':'台北','司马台':'北京','司马台长城':'北京','合肥新桥机场':'合肥','合肥机场':'合肥',
+  '吉隆坡国际机场':'吉隆坡','吉隆坡机场':'吉隆坡','后海':'北京','吐鲁番机场':'吐鲁番','呀诺达':'三亚',
+  '呼和浩特机场':'呼和浩特','呼和浩特白塔机场':'呼和浩特','和田机场':'和田','和顺古镇':'保山',
+  '哈密机场':'哈密','哈尔滨中央大街':'哈尔滨','哈尔滨冰雪大世界':'哈尔滨','哈尔滨太平机场':'哈尔滨',
+  '哈尔滨太阳岛':'哈尔滨','哈尔滨机场':'哈尔滨','哈尔滨松花江':'哈尔滨','哈尔滨极地馆':'哈尔滨',
+  '哈尔滨老道外':'哈尔滨','哈尔滨龙塔':'哈尔滨','喀什机场':'喀什','喀纳斯机场':'喀纳斯','喜洲':'大理',
+  '嘉峪关':'嘉峪关','四姑娘山':'阿坝','回民街':'西安','国家体育场':'北京','国家游泳中心':'北京',
+  '国贸':'北京','圆明园':'北京','土楼':'漳州','圣索菲亚教堂':'哈尔滨','城墙':'西安','城隍庙':'上海',
+  '塔城机场':'塔城','塔尔寺':'西宁','墨尔本机场':'墨尔本','夏威夷机场':'夏威夷','外伶仃岛':'珠海',
+  '外滩':'上海','多伦多机场':'多伦多','多哈哈马德机场':'多哈','多哈机场':'多哈','大东海':'三亚',
+  '大兴机场':'北京','大唐不夜城':'西安','大唐芙蓉园':'西安','大小洞天':'三亚','大明湖':'济南',
+  '大昭寺':'拉萨','大梅沙':'深圳','大熊猫基地':'成都','大理古城':'大理','大理机场':'大理','大花角':'万宁',
+  '大观园':'北京','大连周水子机场':'大连','大连机场':'大连','大阪关西机场':'大阪','大阪机场':'大阪',
+  '大雁塔':'西安','大鹏所城':'深圳','天台山':'台州','天坛':'北京','天安门':'北京','天安门广场':'北京',
+  '天府机场':'成都','天柱山':'安庆','天河机场':'武汉','天津机场':'天津','天津滨海机场':'天津',
+  '天涯海角':'三亚','天门山':'张家界','太原机场':'太原','太原武宿机场':'太原','太古里':'成都',
+  '太姥山':'宁德','太阳岛':'哈尔滨','奥克兰机场':'奥克兰','奥林匹克公园':'北京','威海机场':'威海',
+  '婺源':'上饶','孔庙':'曲阜','孔府':'曲阜','孔林':'曲阜','孤独图书馆':'秦皇岛','宁波机场':'宁波',
+  '宁波栎社机场':'宁波','安吉':'湖州','安福路':'上海','安顺机场':'安顺','安顺黄果树机场':'安顺',
+  '宋城':'杭州','宋氏祖居':'文昌','宏村':'黄山','宜宾五粮液机场':'宜宾','宜宾机场':'宜宾',
+  '宜昌三峡机场':'宜昌','宜昌机场':'宜昌','宝安机场':'深圳','宽窄巷子':'成都','宿务机场':'宿务',
+  '宿迁机场':'宿迁','富蕴机场':'富蕴','小梅沙':'深圳','小雁塔':'西安','尖峰岭':'乐东','尼山圣境':'曲阜',
+  '屯溪老街':'黄山','岱庙':'泰安','岳阳楼':'岳阳','峨眉山':'乐山','崂山':'青岛','崆峒山':'平凉',
+  '崇圣寺三塔':'大理','崇明岛':'上海','巨鹿路':'上海','巴厘岛机场':'巴厘岛','巴厘岛登巴萨机场':'巴厘岛',
+  '巴塞罗那机场':'巴塞罗那','巴黎戴高乐机场':'巴黎','巴黎机场':'巴黎','巽寮湾':'惠州','布达拉宫':'拉萨',
+  '希思罗机场':'伦敦','常州奔牛机场':'常州','常州机场':'常州','平潭岛':'福州','广元机场':'广元',
+  '广州塔':'广州','广州机场':'广州','广州白云机场':'广州','庐山':'九江','库尔勒机场':'库尔勒',
+  '库车机场':'库车','廊曼机场':'曼谷','开平碉楼':'江门','张家界':'张家界','张掖丹霞':'张掖',
+  '徐州机场':'徐州','德天瀑布':'崇左','思南公馆':'上海','恩施大峡谷':'恩施','恩施机场':'恩施',
+  '恩施许家坪机场':'恩施','悉尼机场':'悉尼','悉尼金斯福德·史密斯机场':'悉尼','慕田峪长城':'北京',
+  '成田机场':'东京','成都双流机场':'成都','成都天府机场':'成都','成都机场':'成都','戴高乐机场':'巴黎',
+  '户部巷':'武汉','扎什伦布寺':'日喀则','扬州机场':'扬州','拉斯维加斯机场':'拉斯维加斯','拉萨机场':'拉萨',
+  '拉萨贡嘎机场':'拉萨','攀枝花保安营机场':'攀枝花','攀枝花机场':'攀枝花','故宫':'北京',
+  '敦煌莫高窟':'敦煌','文昌孔庙':'文昌','文昌航天发射场':'文昌','文昌航天城':'文昌','断桥':'杭州',
+  '新加坡机场':'新加坡','新加坡樟宜机场':'新加坡','新天地':'上海','新山一机场':'胡志明','新桥机场':'合肥',
+  '新郑机场':'郑州','无锡机场':'无锡','无锡硕放机场':'无锡','日喀则':'日喀则','日喀则机场':'日喀则',
+  '日月湾':'万宁','旧金山国际机场':'旧金山','旧金山机场':'旧金山','昆明机场':'昆明','昆明长水机场':'昆明',
+  '昌北机场':'南昌','昌都机场':'昌都','昌都邦达机场':'昌都','明仕田园':'崇左','明城墙':'西安',
+  '明显陵':'荆门','昙华林':'武汉','春熙路':'成都','普吉岛机场':'普吉','普吉机场':'普吉','普达措':'迪庆',
+  '普陀山':'舟山','景山公园':'北京','景德镇':'景德镇','暹粒机场':'暹粒','曲阜三孔':'曲阜',
+  '曼谷廊曼机场':'曼谷','曼谷机场':'曼谷','曼谷素万那普机场':'曼谷','曾厝垵':'厦门','朱家角':'上海',
+  '杜甫草堂':'成都','束河古镇':'丽江','杨梅坑':'深圳','杭州机场':'杭州','杭州萧山机场':'杭州',
+  '松涛水库':'儋州','松花江':'哈尔滨','松花湖':'吉林','松花湖滑雪场':'吉林','松赞林寺':'迪庆',
+  '极地馆':'哈尔滨','林芝':'林芝','林芝机场':'林芝','林芝米林机场':'林芝','果戈里大街':'哈尔滨',
+  '枫泾古镇':'上海','栈桥':'青岛','桂山岛':'珠海','桂林两江机场':'桂林','桂林机场':'桂林',
+  '桃仙机场':'沈阳','桃园机场':'台北','桐庐':'杭州','梅里雪山':'迪庆','梵净山':'铜仁','棋子湾':'昌江',
+  '槟榔谷':'三亚','樟宜机场':'新加坡','橘子洲':'长沙','正定机场':'石家庄','武侯祠':'成都',
+  '武夷山':'南平','武宿机场':'太原','武康路':'上海','武当山':'十堰','武汉大学':'武汉',
+  '武汉天河机场':'武汉','武汉机场':'武汉','武陵源':'张家界','毕棚沟':'阿坝','毕节机场':'毕节',
+  '水立方':'北京','江北机场':'重庆','沈阳机场':'沈阳','沈阳桃仙机场':'沈阳','沙坡尾':'厦门',
+  '沙溪古镇':'大理','沙面':'广州','河内内排机场':'河内','河内机场':'河内','泉州晋江机场':'泉州',
+  '泉州机场':'泉州','法兰克福机场':'法兰克福','波士顿机场':'波士顿','泰山':'泰安','泰州机场':'泰州',
+  '泸州云龙机场':'泸州','泸州机场':'泸州','泸沽湖':'凉山','洛杉矶国际机场':'洛杉矶','洛杉矶机场':'洛杉矶',
+  '洱海':'大理','济南机场':'济南','济南遥墙机场':'济南','济州岛机场':'济州','济州机场':'济州',
+  '浦东机场':'上海','海南热带野生动植物园':'海口','海南省博物馆':'海口','海口机场':'海口',
+  '海口美兰机场':'海口','海口钟楼':'海口','海棠湾':'三亚','海棠湾免税城':'三亚','海瑞墓':'海口',
+  '海花岛':'儋州','海螺沟':'甘孜','海陵岛':'阳江','涠洲岛':'北海','淮安机场':'淮安',
+  '深圳宝安机场':'深圳','深圳机场':'深圳','深圳欢乐谷':'深圳','深圳湾':'深圳','清水湾':'陵水',
+  '清迈机场':'清迈','清远古龙峡':'清远','温哥华机场':'温哥华','温州机场':'温州','温州龙湾机场':'温州',
+  '港珠澳大桥':'珠海','滕王阁':'南昌','漓江':'桂林','澳门国际机场':'澳门','澳门机场':'澳门',
+  '火山口地质公园':'海口','灵隐寺':'杭州','烟台山':'福州','烟台机场':'烟台','热带天堂森林公园':'三亚',
+  '热带野生动植物园':'海口','热海':'保山','熊猫基地':'成都','牟尼沟':'阿坝','玉龙雪山':'丽江',
+  '王府井':'北京','环岛路':'厦门','环球金融中心':'上海','珠峰大本营':'日喀则','珠江夜游':'广州',
+  '珠海机场':'珠海','珠海金湾机场':'珠海','珠海长隆':'珠海','瑞丽':'德宏','瑞金':'赣州',
+  '甘孜机场':'甘孜','田子坊':'上海','田螺坑':'漳州','登巴萨机场':'巴厘岛','白云山':'广州',
+  '白云机场':'广州','白水洋':'宁德','白沙古镇':'丽江','百里杜鹃':'毕节','盐城机场':'盐城',
+  '矮寨大桥':'湘西','石头公园':'文昌','石家庄机场':'石家庄','石家庄正定机场':'石家庄','石林峡':'北京',
+  '石梅湾':'万宁','石花水洞':'儋州','碑林':'西安','神农架':'神农架','神州半岛':'万宁','禄口机场':'南京',
+  '福州机场':'福州','福州长乐机场':'福州','秦兵马俑':'西安','秦始皇兵马俑':'西安','稻城亚丁':'甘孜',
+  '米兰机场':'米兰','粮道街':'武汉','素万那普机场':'曼谷','索菲亚教堂':'哈尔滨','红原机场':'红原',
+  '红螺寺':'北京','纳木错':'拉萨','纽约机场':'纽约','纽约肯尼迪机场':'纽约','织金洞':'毕节',
+  '维也纳机场':'维也纳','绵阳南郊机场':'绵阳','绵阳机场':'绵阳','罗马机场':'罗马','羊卓雍措':'山南',
+  '美兰机场':'海口','羽田机场':'东京','老道外':'哈尔滨','肯尼迪机场':'纽约',
+  '胡志明新山一机场':'胡志明','胡志明机场':'胡志明','胶东机场':'青岛','腾冲':'保山','腾龙洞':'恩施',
+  '芒市':'德宏','芙蓉镇':'湘西','芝加哥机场':'芝加哥','芦笛岩':'桂林','苍山':'大理',
+  '苏黎世机场':'苏黎世','茶卡盐湖':'海西','荔波小七孔':'黔南','荔波机场':'荔波','莫干山':'湖州',
+  '莫斯科机场':'莫斯科','萧山机场':'杭州','蓝月谷':'丽江','蓬莱阁':'烟台','虹桥机场':'上海',
+  '蜈支洲岛':'三亚','衡山':'衡阳','襄阳刘集机场':'襄阳','襄阳机场':'襄阳','西双版纳':'西双版纳',
+  '西双版纳机场':'西双版纳','西塘':'嘉兴','西宁曹家堡机场':'西宁','西宁机场':'西宁','西安回民街':'西安',
+  '西安城墙':'西安','西安大唐不夜城':'西安','西安大唐芙蓉园':'西安','西安大雁塔':'西安',
+  '西安碑林':'西安','西安钟楼':'西安','西安鼓楼':'西安','西岛':'三亚','西岭雪山':'成都',
+  '西昌机场':'西昌','西江千户苗寨':'黔东南','西沙湿地':'上海','西湖':'杭州','西溪湿地':'杭州',
+  '西递':'黄山','西雅图机场':'西雅图','观澜湖':'海口','象鼻山':'桂林','豫园':'上海',
+  '贵阳机场':'贵阳','贵阳龙洞堡机场':'贵阳','赤坎古镇':'江门','越秀公园':'广州','趵突泉':'济南',
+  '较场尾':'深圳','达古冰川':'阿坝','达州机场':'达州','达州金垭机场':'达州','连云港机场':'连云港',
+  '迪士尼':'上海','迪士尼乐园':'上海','迪拜国际机场':'迪拜','迪拜机场':'迪拜','遥墙机场':'济南',
+  '遵义新舟机场':'遵义','遵义机场':'遵义','邛海':'凉山','那拉提机场':'那拉提','郑州新郑机场':'郑州',
+  '郑州机场':'郑州','都江堰':'成都','重庆机场':'重庆','重庆江北机场':'重庆','野三坡':'北京',
+  '野象谷':'西双版纳','金浦机场':'首尔','金海湖':'北京','金湾机场':'珠海','金町湾':'汕尾',
+  '金茂大厦':'上海','金边机场':'金边','金顶':'乐山','釜山机场':'釜山','钟楼':'西安',
+  '铜仁凤凰机场':'铜仁','铜仁机场':'铜仁','铜鼓岭':'文昌','银子岩':'桂林','银川机场':'银川',
+  '银川河东机场':'银川','银滩':'北海','锦绣中华':'深圳','锦里':'成都','镇江机场':'镇江',
+  '镇远古镇':'黔东南','长乐机场':'福州','长城':'北京','长岛':'烟台','长影环球100':'海口',
+  '长春机场':'长春','长春龙嘉机场':'长春','长水机场':'昆明','长沙机场':'长沙','长沙黄花机场':'长沙',
+  '长白山':'延边','长白山天池':'延边','长白山滑雪':'延边','长隆国际大马戏':'广州',
+  '长隆欢乐世界':'广州','长隆水上乐园':'广州','长隆海洋王国':'珠海','长隆野生动物世界':'广州',
+  '长隆飞鸟乐园':'广州','闸坡':'阳江','阳朔':'桂林','阳朔西街':'桂林','阿克苏机场':'阿克苏',
+  '阿勒泰机场':'阿勒泰','阿坝机场':'阿坝','阿姆斯特丹机场':'阿姆斯特丹','阿那亚':'秦皇岛',
+  '阿那亚礼堂':'秦皇岛','阿里机场':'阿里','陈家祠':'广州','陕历博':'西安','陕西历史博物馆':'西安',
+  '雁栖湖':'北京','雁荡山':'温州','雅鲁藏布大峡谷':'林芝','雪乡':'牡丹江','雷峰塔':'杭州',
+  '雷琼地质公园':'海口','雾凇岛':'吉林','霸王岭':'昌江','青城山':'成都','青岛机场':'青岛',
+  '青岛胶东机场':'青岛','青海湖':'海南','青龙峡':'北京','韶山':'湘潭','颐和园':'北京',
+  '首尔仁川机场':'首尔','首尔机场':'首尔','首尔金浦机场':'首尔','首都机场':'北京','香山':'北京',
+  '香山公园':'北京','香格里拉':'迪庆','香港国际机场':'香港','香港机场':'香港','香港迪士尼':'香港',
+  '马尼拉尼诺伊·阿基诺机场':'马尼拉','马尼拉机场':'马尼拉','马岭河峡谷':'黔西南','马德里机场':'马德里',
+  '骑楼老街':'海口','高崎机场':'厦门','高雄国际机场':'高雄','高雄机场':'高雄','鱼鳞洲':'东方',
+  '鸟巢':'北京','鸣沙山月牙泉':'敦煌','鹿回头':'三亚','麦积山':'天水','黄姚古镇':'贺州',
+  '黄山':'黄山','黄山屯溪机场':'黄山','黄山机场':'黄山','黄果树瀑布':'安顺','黄腾峡':'清远',
+  '黄花机场':'长沙','黄鹤楼':'武汉','黄龙':'阿坝','黄龙洞':'张家界','鼎湖山':'肇庆','鼓楼':'西安',
+  '鼓浪屿':'厦门','龙嘉机场':'长春','龙塔':'哈尔滨','龙脊梯田':'桂林','龙虎山':'鹰潭',
+};
+
+function extractCountry(kw, l1) {
+  if (['国内酒店','国内机票','火车票'].includes(l1)) return '中国';
+  if (l1 === '景区') {
+    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return INTL_CITY_COUNTRY_JS[c]; }
+    for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return COUNTRY_MAP_JS[n]; }
+    return '中国';
+  }
+  for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return INTL_CITY_COUNTRY_JS[c]; }
+  for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return COUNTRY_MAP_JS[n]; }
+  return '';
+}
+
+function extractCity(kw, l1) {
+  if (['国际酒店','国际机票'].includes(l1)) {
+    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return c; }
+    for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return n; }
+    return '';
+  }
+  if (l1 === '景区') {
+    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return c; }
+    for (const c of CITIES) { if (kw.includes(c)) return c; }
+    return '';
+  }
+  // 国内酒店/机票/火车票：双城市取目的地（出现位置靠后的）
+  const found = [];
+  for (const c of CITIES) {
+    const idx = kw.indexOf(c);
+    if (idx >= 0) found.push({ idx, city: c });
+  }
+  found.sort((a, b) => a.idx - b.idx);  // 按位置排序
+  if (found.length >= 2) return found[found.length - 1].city;  // 目的地
+  if (found.length === 1) return found[0].city;
+  
+  return '';
+}
+
+function classify(kw) {
+  kw = String(kw).trim();
+  if (!kw) return { kw, l1: '', l2: '', country: '', city: '' };
+  const isIntl = isInternational(kw);
+  let l1, l2;
+
+  // 规则1：火车票特征词 + 酒店意图 → 酒店
+  if (hasAny(kw, TRAIN_KEYWORDS) && hasAny(kw, HOTEL_INTENT_IN_TRAIN)) {
+    l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
+  }
+  // 规则2：场站词 + 酒店词 → 酒店
+  else if (hasAny(kw, STATION_KEYWORDS) && hasAny(kw, HOTEL_KEYWORDS)) {
+    l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
+  }
+  // 规则3：航班/机票/航司词/机票业务词 → 机票
+  else if (hasAny(kw, FLIGHT_KEYWORDS) || hasAny(kw, AIRLINE_BRANDS) || hasAny(kw, FLIGHT_BUSINESS_TERMS)) {
+    l1 = isIntl ? '国际机票' : '国内机票'; l2 = _l2_flight(kw, isIntl);
+  }
+  // 规则4：火车票特征词 → 火车票
+  else if (hasAny(kw, TRAIN_KEYWORDS)) {
+    l1 = '火车票'; l2 = _l2_train(kw);
+  }
+  // 规则5b：连锁酒店品牌 → 国内酒店（必须在酒店词判断之前，避免维也纳/香格里拉误归国际）
+  else if (hasAny(kw, HOTEL_CHAINS)) {
+    l1 = '国内酒店'; l2 = '连锁酒店词';
+  }
+  // 规则5：酒店词 → 酒店
+  else if (hasAny(kw, HOTEL_KEYWORDS)) {
+    l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
+  }
+  // 规则6：景点特征词 → 景区
+  else if (hasScenicFeature(kw)) {
+    l1 = '景区'; l2 = _l2_scenic(kw);
+  }
+  // 规则8：同程/竞品品牌 → 根据上下文判断业务线（品牌词本身不决定业务线）
+  // 注：品牌词应结合其他业务信号判断，不应直接归类为景区
+  // 热门目的地/度假区名（阿那亚、金町湾等）→ 对应业务线
+  else if (hasAny(kw, DESTINATION_NAMES)) {
+    l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = isIntl ? '目的地词' : '城市酒店词';
+  }
+  // 泛旅游意图词（去哪玩、适合去哪旅游等）→ 酒店
+  else if (hasAny(kw, GENERIC_TRAVEL_INTENT)) {
+    l1 = isIntl ? '国际酒店' : '国内酒店';
+    if (isIntl) {
+      l2 = _l2_hotel(kw, true);
+    } else {
+      l2 = '通用词';
+    }
+  }
+  // 规则9：品牌词 + 业务信号 → 对应业务线
+  else if (hasAny(kw, TC_BRANDS) || hasAny(kw, COMPETITOR_BRANDS)) {
+    if (hasAny(kw, HOTEL_KEYWORDS) || hasAny(kw, HOTEL_CHAINS)) {
+      l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = hasAny(kw, TC_BRANDS) ? '品牌词（同程）' : '竞品词';
+    } else if (hasAny(kw, FLIGHT_KEYWORDS) || hasAny(kw, AIRLINE_BRANDS) || hasAny(kw, FLIGHT_BUSINESS_TERMS)) {
+      l1 = isIntl ? '国际机票' : '国内机票'; l2 = hasAny(kw, TC_BRANDS) ? '品牌词（同程）' : '竞品词';
+    } else if (hasAny(kw, TRAIN_KEYWORDS)) {
+      l1 = '火车票'; l2 = hasAny(kw, TC_BRANDS) ? '品牌词（同程）' : '竞品词';
+    } else if (hasScenicFeature(kw)) {
+      l1 = '景区'; l2 = hasAny(kw, TC_BRANDS) ? '品牌词（同程）' : '竞品词';
+    } else {
+      l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = hasAny(kw, TC_BRANDS) ? '品牌词（同程）' : '竞品词';
+    }
+  }
+  // 规则10：待确认词优化
+  else {
+    // 包含住宿/旅游意图 → 酒店业务线，但词包走 _l2_hotel() 完整判断
+    if (hasAny(kw, ['住','住宿','酒店','民宿','客栈','公寓','别墅','度假村','入住','退房','住哪','住店','过夜','住宿推荐','附近住宿','周边住宿']) ||
+        hasAny(kw, ['旅游','旅行','度假','出游','游玩','攻略','行程','路线','导游','自由行','跟团','旅行社'])) {
+      l1 = isIntl ? '国际酒店' : '国内酒店';
+      // 国际酒店：走 _l2_hotel 完整分类，确保目的地词等词包正确识别
+      if (isIntl) {
+        l2 = _l2_hotel(kw, true);
+      } else {
+        l2 = _l2_hotel(kw, false);
+      }
+    }
+    // 机票相关业务词 → 国内机票（已移至规则3，此处保留兜底）
+    else if (hasAny(kw, FLIGHT_BUSINESS_TERMS)) {
+      l1 = '国内机票'; l2 = '通用词';
+    }
+    // 兜底——无核心业务信号则标待确认
+    else {
+      const coreSignals = HOTEL_KEYWORDS.concat(FLIGHT_KEYWORDS, TRAIN_KEYWORDS,
+        SCENIC_FEATURE_WORDS, HOTEL_CHAINS, AIRLINE_BRANDS,
+        TC_BRANDS, COMPETITOR_BRANDS, TRAVEL_GUIDE,
+        FESTIVAL_KEYWORDS, INTERNATIONAL_KEYWORDS,
+        STATION_KEYWORDS, FLIGHT_PRODUCTS, FLIGHT_SCENARIOS,
+        INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
+        PREMIUM_QUALITY, PRICE_SENSITIVE, URGENT_NEED, GEO_LOCATION);
+      const hasCore = hasAny(kw, coreSignals) || hasCity(kw) || hasIntlCity(kw);
+      if (!hasCore) {
+        l1 = '待确认'; l2 = '通用词';
+      } else {
+        l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
+      }
+    }
+  }
+
+  const country = extractCountry(kw, l1);
+  const city = extractCity(kw, l1);
+  return { kw, l1, l2, country, city };
+}
+
+function _l2_hotel(kw, isIntl) {
+  if (hasAny(kw, TC_BRANDS)) return '品牌词（同程）';
+  if (hasAny(kw, COMPETITOR_BRANDS)) return '竞品词';
+  if (isIntl) {
+    if (hasAny(kw, TRIP_CROWD)) return '人群场景词';
+    if (hasAny(kw, TRIP_MODE)) return '出行方式词';
+    // 目的地识别前置：含真实地名 → 目的地词（避免被场景词/景点词中的泛词阻断）
+    if (hasIntlCity(kw)) return '目的地词';
+    if (hasAny(kw, INTL_SCENE_WORDS)) return '场景词';
+    if (hasAny(kw, INTL_SCENIC_WORDS)) return '景点词';
+    return '通用词';
+  } else {
+    if (hasAny(kw, HOTEL_CHAINS)) return '连锁酒店词';
+    if (hasAny(kw, URGENT_NEED)) return '即时需求词';
+    if (hasAny(kw, PRICE_SENSITIVE)) return '价格敏感词';
+    if (hasAny(kw, PREMIUM_QUALITY)) return '品质高端词';
+    if (hasAny(kw, GEO_LOCATION)) return '地理位置词';
+    if (hasAny(kw, DESTINATION_NAMES)) return '城市酒店词';
+    if (hasAny(kw, FESTIVAL_KEYWORDS)) return '节点词';
+    if (hasAny(kw, TRAVEL_GUIDE)) return '长尾攻略词';
+    if (hasAny(kw, GENERIC_TRAVEL_INTENT)) return '通用词';
+    if (hasCity(kw))
+      return hasAny(kw, HOTEL_KEYWORDS) ? '城市酒店词' : '城市攻略词';
+    return '通用词';
+  }
+}
+
+function _l2_flight(kw, isIntl) {
+  if (hasAny(kw, TC_BRANDS)) return '品牌词（同程）';
+  if (hasAny(kw, COMPETITOR_BRANDS)) return '竞品词';
+  if (hasAny(kw, FESTIVAL_KEYWORDS)) return '节点词';
+  if (hasAny(kw, URGENT_FLIGHT)) return '紧急出行词';
+  if (hasAny(kw, PRICE_COMPARE)) return '比价决策词';
+  if (hasAny(kw, CROWD_FLIGHT)) return '人群词';
+  if (isFlightRoute(kw)) return '航段词';
+  if (hasAny(kw, FLIGHT_PRODUCTS)) return '产品词';
+  if (hasAny(kw, AIRLINE_BRANDS)) return '航司词';
+  if (hasAny(kw, FLIGHT_SCENARIOS)) return '业务场景词';
+  if (hasAny(kw, QUERY_NAV)) return '查询导航词';
+  if (hasAny(kw, FLIGHT_BUSINESS_TERMS)) return '业务费用词';
+  // 国际机票：只有包含具体城市/国家才归为目的地词，否则为通用词
+  if (isIntl) {
+    if (hasIntlCity(kw)) return '目的地词';
+    return '通用词';
+  }
+  if (hasCity(kw)) return '目的地词';
+  return '通用词';
+}
+
+function _l2_train(kw) {
+  if (hasAny(kw, TC_BRANDS)) return '品牌词（同程）';
+  if (hasAny(kw, COMPETITOR_BRANDS)) return '竞品词';
+  if (hasAny(kw, FESTIVAL_KEYWORDS)) return '节点词';
+  if (hasAny(kw, TRAIN_GRAB)) return '抢票候补词';
+  if (hasAny(kw, TRAIN_COMMUTE)) return '通勤词';
+  if (hasAny(kw, TRAIN_TRAVEL)) return '旅游出行词';
+  if (hasAny(kw, PLATFORM_12306)) return '平台词';
+  if (hasAny(kw, STATION_KEYWORDS)) return '场站词';
+  return '通用词';
+}
+
+function _l2_scenic(kw) {
+  if (hasAny(kw, TC_BRANDS)) return '品牌词（同程）';
+  if (hasAny(kw, COMPETITOR_BRANDS)) return '竞品词';
+  if (hasAny(kw, FESTIVAL_KEYWORDS)) return '节点词';
+  if (hasAny(kw, SCENIC_TICKET)) return '票务意图词';
+  if (hasAny(kw, SCENIC_REVIEW)) return '评价攻略词';
+  if (hasAny(kw, SCENIC_THEME_PARK)) return '主题乐园';
+  if (hasAny(kw, SCENIC_NATURE)) return '自然风光';
+  if (hasAny(kw, SCENIC_CULTURE)) return '人文历史';
+  return '景点词';
+}
+
+// ═══════════════════════════════════════════════════
+// 三级分类词库
+// ═══════════════════════════════════════════════════
+
+const PRICE_SENSITIVE = ['便宜','性价比','特价','打折','划算','优惠','低价','百元','平价','实惠','折扣','促销','秒杀','省钱','捡漏'];
+const PREMIUM_QUALITY = ['五星','五星级','豪华','高端','精品','奢华','轻奢','度假','温泉','浪漫','网红','设计','主题','星级'];
+const GEO_LOCATION = ['地铁','机场','火车站','附近','旁边','周边','步行','紧邻','毗邻','紧靠','对面','站前','商圈'];
+const URGENT_NEED = ['当日','今天','现在','钟点房','临时','今晚','马上','立刻','急','当天','即时','凌晨','半夜','深夜'];
+const TRAVEL_GUIDE = ['攻略','自由行','几日游','必去','必玩','旅游路线','行程','路线','怎么玩','好玩','避坑','打卡'];
+
+const PRICE_COMPARE = ['比价','哪个便宜','哪家好','多少钱','最便宜','划算','折扣','最低价','最低','优惠价','特价','打折'];
+const QUERY_NAV = ['查询','时刻表','航班号','航班动态','准点率','时刻','动态','查询系统','通知','提醒','轨迹'];
+const URGENT_FLIGHT = ['今天','明天','紧急','马上','当天','临时','今晚','立刻','尽快','即日','即时'];
+const CROWD_FLIGHT = ['学生','军人','老人','儿童','婴儿','留学生','青少年','团队','团购'];
+
+// 注：原 INTL_HIGH/MID/LOW_SPEND 三组消费档次词包已合并统一为「目的地词」，由 hasIntlCity() 识别
+const TRIP_CROWD = ['蜜月','亲子','闺蜜','独行','团建','商务','情侣','家庭','带娃','老人'];
+const TRIP_MODE = ['邮轮','包机','自由行','跟团','半自助','自驾','定制','小团','私家'];
+
+const SCENIC_THEME_PARK = ['迪士尼','环球影城','欢乐谷','长隆','方特','乐园','海洋馆','水族馆','动物园','游乐园','水上乐园','冰雪','滑雪','漂流'];
+const SCENIC_NATURE = ['黄山','泰山','九寨沟','瀑布','溶洞','草原','湿地','森林','冰川','沙漠','峡谷','石林','丹霞','盐湖','天池'];
+const SCENIC_CULTURE = ['古镇','古城','博物馆','纪念馆','寺','庙','观','教堂','清真寺','长城','故宫','兵马俑','遗址','古迹','故居','书院','祠堂','园林','庄园','行宫','皇陵','皇城'];
+const SCENIC_TICKET = ['门票','免票','半票','半价','预约','开放时间','票价','购票','团购','售票','取票','换票'];
+const SCENIC_REVIEW = ['好玩吗','值得去吗','避坑','怎么样','坑','差评','好评','体验','吐槽','踩雷','避雷','踩坑'];
+
+const TRAIN_GRAB = ['抢票','候补','捡漏','加速','抢票软件','抢票攻略','候补成功','候补概率'];
+const TRAIN_COMMUTE = ['通勤','上班','月票','定期','计次','往返票','常旅客','通勤票','通勤卡'];
+const TRAIN_TRAVEL = ['旅游','攻略','景点','玩','游玩'];
+
+// ═══════════════════════════════════════════════════
+// UI & 渲染
+// ═══════════════════════════════════════════════════
+
+const L1_META = {
+  '国内酒店': { cls: 'hotel', color: '#1a73e8', pct: 0 },
+  '国内机票': { cls: 'flight', color: '#10b981', pct: 0 },
+  '国际酒店': { cls: 'hotel-intl', color: '#8b5cf6', pct: 0 },
+  '国际机票': { cls: 'flight-intl', color: '#f59e0b', pct: 0 },
+  '景区': { cls: 'scenic', color: '#ef4444', pct: 0 },
+  '火车票': { cls: 'train', color: '#ec4899', pct: 0 },
+  '待确认': { cls: 'unclassified', color: '#9ca3af', pct: 0 },
+};
+const L1_ORDER = ['国内酒店','国内机票','国际酒店','国际机票','景区','火车票','待确认'];
+const L2_COLORS = ['#1a73e8','#10b981','#8b5cf6','#f59e0b','#ef4444','#ec4899','#0d9488','#f97316','#6366f1','#84cc16','#06b6d4','#e11d48'];
+
+let allResults = [];
+let filteredResults = [];
+let currentPage = 1;
+const PAGE_SIZE = 50;
+let charts = {};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('tab-paste').classList.toggle('hidden', tab !== 'paste');
+  document.getElementById('tab-upload').classList.toggle('hidden', tab !== 'upload');
+}
+
+function loadSample() {
+  const samples = [
+    '上海酒店推荐','北京民宿性价比高','杭州旅游攻略','苏州住哪个地铁站比较方便',
+    '广州长隆迎宾路城际酒店','三亚亚特兰蒂斯酒店','成都宽窄巷子附近酒店',
+    '重庆洪崖洞住宿','武汉黄鹤楼附近酒店','南京总统府门票',
+    '北京故宫门票多少钱','上海迪士尼乐园门票','张家界天门山门票',
+    '五一机票特价','国庆去哪里玩便宜机票','北京飞上海机票',
+    '从成都到重庆机票','杭州到厦门航班','深圳到海口特价机票',
+    '国航值机选座','机票退改签手续费','儿童机票怎么买',
+    '随心飞第三次卡','机票盲盒真的假的','高铁票候补成功率高吗',
+    '火车票抢票软件哪个快','长沙南站怎么去市区','五一车票候补',
+    '高铁贵宾厅有什么服务','济州岛酒店推荐','日本东京酒店性价比',
+    '曼谷民宿近地铁口','普吉岛亲子酒店推荐','巴厘岛悬崖酒店',
+    '首尔仁川机场附近酒店','巴黎酒店安全区域','五一日本往返机票',
+    '五一去巴厘岛费用','济州岛购物免税店攻略','马尔代夫选岛攻略',
+    '携程酒店预订','去哪儿机票比价','飞猪民宿','美团酒店',
+    '同程旅行订房优惠','如家酒店汉庭全季','希尔顿万豪洲际',
+    '五一天安门升旗仪式预约','国庆长城门票','春节三亚机票贵',
+    '暑假带娃去哪里玩好','清明祭祖去哪里','端午粽子推荐',
+    '元旦跨年烟花秀','情人节适合去哪里','圣诞节约会餐厅',
+  ];
+  document.getElementById('kw-text').value = samples.join('\n');
+}
+
+async function runClassify() {
+  console.log('runClassify called');
+  const t0 = performance.now();
+  showLoading(true);
+
+  let raw = [];
+  const tab = document.querySelector('.tab-btn.active').dataset.tab;
+  console.log('Current tab:', tab);
+
+  try {
+    if (tab === 'paste') {
+      const text = document.getElementById('kw-text').value.trim();
+      if (!text) { showLoading(false); alert('请输入关键词'); return; }
+      raw = text.split('\n').map(s => s.trim()).filter(Boolean);
+    } else {
+      const file = document.getElementById('file-input').files[0];
+      console.log('Upload mode, file:', file);
+      if (!file) { showLoading(false); alert('请先上传文件'); return; }
+      const ab = await file.arrayBuffer();
+      const data = new Uint8Array(ab);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const col = parseInt(document.getElementById('col-kw').value) || 1;
+      const colCost = parseInt(document.getElementById('col-cost').value) || 0;
+      const colImp = parseInt(document.getElementById('col-impression').value) || 0;
+      const colClick = parseInt(document.getElementById('col-click').value) || 0;
+      const rowStart = parseInt(document.getElementById('row-start').value) || 1;
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let r = range.s.r + rowStart - 1; r <= range.e.r; r++) {
+        const cell = ws[XLSX.utils.encode_cell({ r, c: col - 1 })];
+        const val = cell ? (typeof cell.v === 'number' ? String(cell.v) : String(cell.v || '')) : '';
+        if (val.trim()) {
+          const item = { kw: val.trim(), cost: 0, impression: 0, click: 0 };
+          if (colCost > 0) {
+            const costCell = ws[XLSX.utils.encode_cell({ r, c: colCost - 1 })];
+            item.cost = costCell ? (parseFloat(costCell.v) || 0) : 0;
+          }
+          if (colImp > 0) {
+            const impCell = ws[XLSX.utils.encode_cell({ r, c: colImp - 1 })];
+            item.impression = impCell ? (parseInt(impCell.v) || 0) : 0;
+          }
+          if (colClick > 0) {
+            const clickCell = ws[XLSX.utils.encode_cell({ r, c: colClick - 1 })];
+            item.click = clickCell ? (parseInt(clickCell.v) || 0) : 0;
+          }
+          raw.push(item);
+        }
+      }
+    }
+  } catch(e) {
+    showLoading(false);
+    alert('读取失败: ' + e.message);
+    return;
+  }
+
+  if (raw.length === 0) { showLoading(false); alert('未找到关键词'); return; }
+
+  allResults = raw.map(item => {
+    const result = classify(item.kw || item);
+    if (typeof item === 'object') {
+      result.cost = item.cost || 0;
+      result.impression = item.impression || 0;
+      result.click = item.click || 0;
+    } else {
+      result.cost = 0;
+      result.impression = 0;
+      result.click = 0;
+    }
+    return result;
+  });
+  const ms = Math.round(performance.now() - t0);
+  showLoading(false);
+  renderAll(allResults, ms);
+}
+
+function initFilters() {
+  // 一级分类筛选器
+  const l1Tags = document.getElementById('filter-l1-tags');
+  const l1s = [...new Set(allResults.map(r => r.l1).filter(Boolean))].sort();
+  l1Tags.innerHTML = '<span class="filter-tag active" data-value="" onclick="selectFilter(this, \'l1\')">全部</span>' +
+    l1s.map(l1 => `<span class="filter-tag" data-value="${l1}" onclick="selectFilter(this, 'l1')">${l1}</span>`).join('');
+  
+  // 二级分类筛选器 - 初始显示全部
+  updateL2FilterTags('');
+  
+  // 国家下拉
+  const countrySelect = document.getElementById('filter-country');
+  const countries = [...new Set(allResults.map(r => r.country).filter(Boolean))].sort();
+  countrySelect.innerHTML = '<option value="">全部国家</option>' +
+    countries.map(c => `<option value="${c}">${c}</option>`).join('');
+  
+  // 城市下拉
+  const citySelect = document.getElementById('filter-city');
+  const cities = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  citySelect.innerHTML = '<option value="">全部城市</option>' +
+    cities.map(c => `<option value="${c}">${c}</option>`).join('');
+}
+
+// 根据选中的一级分类更新二级分类标签
+function updateL2FilterTags(selectedL1) {
+  const l2Tags = document.getElementById('filter-l2-tags');
+  let l2s;
+  
+  if (selectedL1 === '') {
+    // 全部：显示所有二级分类
+    l2s = [...new Set(allResults.map(r => r.l2).filter(Boolean))].sort();
+  } else {
+    // 只显示该一级分类下的二级分类
+    l2s = [...new Set(allResults.filter(r => r.l1 === selectedL1).map(r => r.l2).filter(Boolean))].sort();
+  }
+  
+  l2Tags.innerHTML = '<span class="filter-tag active" data-value="" onclick="selectFilter(this, \'l2\')">全部</span>' +
+    l2s.map(l2 => `<span class="filter-tag" data-value="${l2}" onclick="selectFilter(this, 'l2')">${l2}</span>`).join('');
+}
+
+function selectFilter(el, type) {
+  const container = type === 'l1' ? document.getElementById('filter-l1-tags') : document.getElementById('filter-l2-tags');
+  container.querySelectorAll('.filter-tag').forEach(tag => tag.classList.remove('active'));
+  el.classList.add('active');
+  
+  // 如果点击的是一级分类，更新二级分类标签
+  if (type === 'l1') {
+    const selectedL1 = el.dataset.value;
+    updateL2FilterTags(selectedL1);
+  }
+  
+  renderTable(1);
+}
+
+function clearFilters() {
+  document.getElementById('search-box').value = '';
+  document.querySelectorAll('.filter-tag').forEach(tag => tag.classList.remove('active'));
+  document.querySelector('#filter-l1-tags .filter-tag[data-value=""]').classList.add('active');
+  // 重置二级分类标签为全部
+  updateL2FilterTags('');
+  document.getElementById('filter-country').value = '';
+  document.getElementById('filter-city').value = '';
+  renderTable(1);
+}
+
+function renderAll(results, ms) {
+  document.getElementById('result-area').classList.remove('hidden');
+  initFilters();
+  currentPage = 1;
+  document.getElementById('search-box').value = '';
+
+  // 统计
+  document.getElementById('stat-total').textContent = results.length.toLocaleString();
+  const l1Set = new Set(results.map(r => r.l1));
+  const l2Set = new Set(results.map(r => r.l2));
+  document.getElementById('stat-l1').textContent = l1Set.size;
+  document.getElementById('stat-l2').textContent = l2Set.size;
+  document.getElementById('stat-time').textContent = ms + 'ms';
+
+  // L1 计数
+  const l1Count = {};
+  const l2Count = {};
+  results.forEach(r => {
+    l1Count[r.l1] = (l1Count[r.l1] || 0) + 1;
+    l2Count[r.l2] = (l2Count[r.l2] || 0) + 1;
+  });
+
+  // L1 百分比
+  L1_ORDER.forEach(l1 => {
+    if (l1Count[l1] !== undefined)
+      L1_META[l1].pct = l1Count[l1] / results.length;
+  });
+
+  // 渲染图表
+  renderL1Chart(l1Count, results.length);
+  renderL2Chart(l2Count, results.length);
+
+  // 渲染数据分析（如果有花费数据）
+  const hasCostData = results.some(r => r.cost > 0);
+  if (hasCostData) {
+    document.getElementById('analysis-section').classList.remove('hidden');
+    document.getElementById('cross-analysis-section').classList.remove('hidden');
+    renderCostAnalysis();
+    initCrossFilters();
+    renderCrossAnalysis();
+  } else {
+    document.getElementById('analysis-section').classList.add('hidden');
+    document.getElementById('cross-analysis-section').classList.add('hidden');
+  }
+
+  // 渲染表格
+  filteredResults = [...results];
+  renderTable(1);
+
+  // 渲染关键词词云
+  initWcFilters();
+  renderWordCloud();
+}
+
+// Chart.js 数据标签插件
+const dataLabelsPlugin = {
+  id: 'dataLabels',
+  afterDatasetsDraw(chart, args, options) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((dataset, i) => {
+      const meta = chart.getDatasetMeta(i);
+      meta.data.forEach((element, index) => {
+        const value = dataset.data[index];
+        if (value === 0 || value === undefined || value === null) return;
+        
+        ctx.save();
+        ctx.font = 'bold 11px Arial';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const pos = element.tooltipPosition();
+        const label = value.toLocaleString();
+        
+        // 根据图表类型调整位置
+        if (chart.config.type === 'doughnut' || chart.config.type === 'pie') {
+          // 环形图：显示百分比和数量
+          const total = dataset.data.reduce((sum, v) => sum + (v || 0), 0);
+          const pct = total > 0 ? (value / total * 100).toFixed(1) : 0;
+          const labelText = pct + '%';
+          const countText = '(' + value.toLocaleString() + ')';
+          
+          const angle = (element.startAngle + element.endAngle) / 2;
+          const radius = (element.innerRadius + element.outerRadius) / 2;
+          const x = element.x + Math.cos(angle) * radius;
+          const y = element.y + Math.sin(angle) * radius;
+          
+          // 如果扇形太小就不显示
+          const arcSize = element.endAngle - element.startAngle;
+          if (arcSize > 0.15) {
+            // 绘制百分比
+            ctx.font = 'bold 12px Arial';
+            ctx.fillText(labelText, x, y - 6);
+            // 绘制数量
+            ctx.font = '10px Arial';
+            ctx.fillText(countText, x, y + 8);
+          }
+        } else if (chart.config.type === 'bar') {
+          // 柱状图：显示在柱子顶部
+          ctx.fillStyle = '#1f2937';
+          ctx.fillText(label, pos.x, pos.y - 5);
+        }
+        
+        ctx.restore();
+      });
+    });
+  }
+};
+
+// 注册插件
+Chart.register(dataLabelsPlugin);
+
+function renderL1Chart(counts, total) {
+  if (charts.l1) charts.l1.destroy();
+  const labels = L1_ORDER.filter(l => counts[l]);
+  const data = labels.map(l => counts[l]);
+  const colors = labels.map(l => L1_META[l]?.color || '#999');
+
+  charts.l1 = new Chart(document.getElementById('chart-l1'), {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#fff',
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 12 }, padding: 14, usePointStyle: true, pointStyleWidth: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${(ctx.parsed/total*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderL2Chart(counts, total) {
+  if (charts.l2) charts.l2.destroy();
+  // 合并 l1+l2 作为标签
+  const l2Map = {};
+  allResults.forEach(r => {
+    const key = r.l1 + ' > ' + r.l2;
+    l2Map[key] = (l2Map[key] || 0) + 1;
+  });
+  const sorted = Object.entries(l2Map).sort((a, b) => b[1] - a[1]);
+  const labels = sorted.slice(0, 15).map(s => s[0]);
+  const data = sorted.slice(0, 15).map(s => s[1]);
+
+  charts.l2 = new Chart(document.getElementById('chart-l2'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '词数',
+        data,
+        backgroundColor: labels.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
+        borderRadius: 5,
+        barThickness: 18,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.parsed.x.toLocaleString()} (${(ctx.parsed.x/total*100).toFixed(1)}%)`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#f3f4f6' }, ticks: { font: { size: 11 } } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderTable(page) {
+  const search = document.getElementById('search-box').value.trim().toLowerCase();
+  const filterL1 = document.querySelector('#filter-l1-tags .active')?.dataset.value || '';
+  const filterL2 = document.querySelector('#filter-l2-tags .active')?.dataset.value || '';
+  const filterCountry = document.getElementById('filter-country').value;
+  const filterCity = document.getElementById('filter-city').value;
+  
+  filteredResults = allResults.filter(r => {
+    if (search && !r.kw.toLowerCase().includes(search)) return false;
+    if (filterL1 && r.l1 !== filterL1) return false;
+    if (filterL2 && r.l2 !== filterL2) return false;
+    if (filterCountry && r.country !== filterCountry) return false;
+    if (filterCity && r.city !== filterCity) return false;
+    return true;
+  });
+  currentPage = page;
+  const start = (page - 1) * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const pageItems = filteredResults.slice(start, end);
+  const totalPages = Math.max(1, Math.ceil(filteredResults.length / PAGE_SIZE));
+
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = pageItems.map((r, i) => {
+    const l1Meta = L1_META[r.l1] || { cls: '', color: '#999' };
+    const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
+    const cpc = r.click > 0 ? '¥' + (r.cost / r.click).toFixed(2) : '-';
+    return `<tr>
+      <td class="num" style="color:#9ca3af">${start + i + 1}</td>
+      <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.kw)}">${escHtml(r.kw)}</td>
+      <td><span class="l1-badge ${l1Meta.cls}">${r.l1}</span></td>
+      <td><span class="l2-tag">${r.l2}</span></td>
+      <td style="color:#6366f1;font-weight:500">${r.country||'-'}</td>
+      <td style="color:#059669;font-weight:500">${r.city||'-'}</td>
+      <td class="num" style="color:#ef4444">${r.cost ? '¥' + r.cost.toLocaleString() : '-'}</td>
+      <td class="num" style="color:#3b82f6">${r.impression ? r.impression.toLocaleString() : '-'}</td>
+      <td class="num" style="color:#10b981">${r.click ? r.click.toLocaleString() : '-'}</td>
+      <td class="num">${ctr}</td>
+      <td class="num">${cpc}</td>
+    </tr>`;
+  }).join('');
+
+  // 分页
+  const pagination = document.getElementById('pagination');
+  if (filteredResults.length <= PAGE_SIZE) {
+    pagination.innerHTML = '';
+    return;
+  }
+  let html = `<span class="page-info">${filteredResults.length} 条结果，第 ${page}/${totalPages} 页</span>`;
+  html += `<button class="page-btn" onclick="renderTable(1)">«</button>`;
+  html += `<button class="page-btn" onclick="renderTable(${Math.max(1, page-1)})">‹</button>`;
+  const pages = [];
+  for (let p = Math.max(1, page-2); p <= Math.min(totalPages, page+2); p++) pages.push(p);
+  pages.forEach(p => {
+    html += `<button class="page-btn${p===page?' active':''}" onclick="renderTable(${p})">${p}</button>`;
+  });
+  html += `<button class="page-btn" onclick="renderTable(${Math.min(totalPages, page+1)})">›</button>`;
+  html += `<button class="page-btn" onclick="renderTable(${totalPages})">»</button>`;
+  pagination.innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function exportCSV() {
+  const rows = [['关键词','一级分类','二级分类','国家','城市','花费','曝光量','点击量','CTR','CPC']];
+  filteredResults.forEach(r => {
+    const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
+    const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
+    rows.push([r.kw, r.l1, r.l2, r.country, r.city, r.cost, r.impression, r.click, ctr, cpc]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  downloadFile('\ufeff' + csv, '关键词分类结果.csv', 'text/csv;charset=utf-8');
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function showLoading(show) {
+  document.getElementById('loading').classList.toggle('show', show);
+}
+
+// ═══════════════════════════════════════════════════
+// 数据分析模块
+// ═══════════════════════════════════════════════════
+
+let analysisCharts = {};
+
+function switchAnalysisTab(tab) {
+  document.querySelectorAll('[data-analysis]').forEach(btn => btn.classList.remove('active'));
+  document.querySelector(`[data-analysis="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.analysis-content').forEach(el => el.classList.add('hidden'));
+  document.getElementById(`analysis-${tab}`).classList.remove('hidden');
+  
+  // 渲染对应图表
+  if (tab === 'cost') renderCostAnalysis();
+  else if (tab === 'impression') renderImpressionAnalysis();
+  else if (tab === 'click') renderClickAnalysis();
+  else if (tab === 'efficiency') renderEfficiencyAnalysis();
+}
+
+function calculateMetrics() {
+  const metrics = {};
+  
+  // 按一级分类汇总
+  allResults.forEach(r => {
+    const l1 = r.l1 || '未分类';
+    if (!metrics[l1]) {
+      metrics[l1] = {
+        count: 0,
+        cost: 0,
+        impression: 0,
+        click: 0
+      };
+    }
+    metrics[l1].count++;
+    metrics[l1].cost += r.cost || 0;
+    metrics[l1].impression += r.impression || 0;
+    metrics[l1].click += r.click || 0;
+  });
+  
+  // 计算衍生指标
+  Object.keys(metrics).forEach(l1 => {
+    const m = metrics[l1];
+    m.avgCost = m.count > 0 ? m.cost / m.count : 0;
+    m.avgImpression = m.count > 0 ? m.impression / m.count : 0;
+    m.avgClick = m.count > 0 ? m.click / m.count : 0;
+    m.ctr = m.impression > 0 ? (m.click / m.impression * 100) : 0;
+    m.cpc = m.click > 0 ? (m.cost / m.click) : 0;
+  });
+  
+  return metrics;
+}
+
+function renderCostAnalysis() {
+  const metrics = calculateMetrics();
+  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].cost - metrics[a].cost);
+  const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+  
+  // 渲染图表
+  if (analysisCharts.cost) analysisCharts.cost.destroy();
+  analysisCharts.cost = new Chart(document.getElementById('chart-cost'), {
+    type: 'bar',
+    data: {
+      labels: l1s,
+      datasets: [{
+        label: '花费',
+        data: l1s.map(l1 => metrics[l1].cost),
+        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` 花费: ¥${ctx.parsed.y.toLocaleString()}`
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '¥' + v.toLocaleString() } }
+      }
+    }
+  });
+  
+  // 渲染表格
+  const tbody = document.querySelector('#table-cost tbody');
+  tbody.innerHTML = l1s.map(l1 => {
+    const m = metrics[l1];
+    const pct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    return `<tr>
+      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#ef4444;font-weight:600">¥${m.cost.toLocaleString()}</td>
+      <td class="num">${pct}%</td>
+      <td class="num">¥${m.avgCost.toFixed(2)}</td>
+      <td class="num">${m.impression.toLocaleString()}</td>
+      <td class="num">${m.click.toLocaleString()}</td>
+      <td class="num">¥${m.cpc.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderImpressionAnalysis() {
+  const metrics = calculateMetrics();
+  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].impression - metrics[a].impression);
+  const totalImp = Object.values(metrics).reduce((sum, m) => sum + m.impression, 0);
+  
+  // 渲染图表
+  if (analysisCharts.impression) analysisCharts.impression.destroy();
+  analysisCharts.impression = new Chart(document.getElementById('chart-impression'), {
+    type: 'bar',
+    data: {
+      labels: l1s,
+      datasets: [{
+        label: '曝光量',
+        data: l1s.map(l1 => metrics[l1].impression),
+        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+  
+  // 渲染表格
+  const tbody = document.querySelector('#table-impression tbody');
+  tbody.innerHTML = l1s.map(l1 => {
+    const m = metrics[l1];
+    const pct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
+    return `<tr>
+      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#3b82f6;font-weight:600">${m.impression.toLocaleString()}</td>
+      <td class="num">${pct}%</td>
+      <td class="num">${m.avgImpression.toFixed(0)}</td>
+      <td class="num">${m.click.toLocaleString()}</td>
+      <td class="num">${m.ctr.toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderClickAnalysis() {
+  const metrics = calculateMetrics();
+  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].click - metrics[a].click);
+  const totalClick = Object.values(metrics).reduce((sum, m) => sum + m.click, 0);
+  
+  // 渲染图表
+  if (analysisCharts.click) analysisCharts.click.destroy();
+  analysisCharts.click = new Chart(document.getElementById('chart-click'), {
+    type: 'bar',
+    data: {
+      labels: l1s,
+      datasets: [{
+        label: '点击量',
+        data: l1s.map(l1 => metrics[l1].click),
+        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+  
+  // 渲染表格
+  const tbody = document.querySelector('#table-click tbody');
+  tbody.innerHTML = l1s.map(l1 => {
+    const m = metrics[l1];
+    const pct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
+    return `<tr>
+      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#10b981;font-weight:600">${m.click.toLocaleString()}</td>
+      <td class="num">${pct}%</td>
+      <td class="num">${m.avgClick.toFixed(0)}</td>
+      <td class="num">¥${m.cost.toLocaleString()}</td>
+      <td class="num">¥${m.cpc.toFixed(2)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderEfficiencyAnalysis() {
+  const metrics = calculateMetrics();
+  
+  // 计算效率评分（综合CTR和CPC）
+  Object.keys(metrics).forEach(l1 => {
+    const m = metrics[l1];
+    // 效率评分 = CTR / CPC * 100（CTR越高、CPC越低，效率越高）
+    m.efficiency = m.cpc > 0 ? (m.ctr / m.cpc * 100) : 0;
+  });
+  
+  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].efficiency - metrics[a].efficiency);
+  const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+  const totalImp = Object.values(metrics).reduce((sum, m) => sum + m.impression, 0);
+  const totalClick = Object.values(metrics).reduce((sum, m) => sum + m.click, 0);
+  
+  // 渲染图表
+  if (analysisCharts.efficiency) analysisCharts.efficiency.destroy();
+  analysisCharts.efficiency = new Chart(document.getElementById('chart-efficiency'), {
+    type: 'bar',
+    data: {
+      labels: l1s,
+      datasets: [{
+        label: '效率评分',
+        data: l1s.map(l1 => metrics[l1].efficiency),
+        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+  
+  // 渲染表格
+  const tbody = document.querySelector('#table-efficiency tbody');
+  tbody.innerHTML = l1s.map(l1 => {
+    const m = metrics[l1];
+    const costPct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    const impPct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
+    const clickPct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
+    return `<tr>
+      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num">${m.ctr.toFixed(2)}%</td>
+      <td class="num">¥${m.cpc.toFixed(2)}</td>
+      <td class="num">${costPct}%</td>
+      <td class="num">${impPct}%</td>
+      <td class="num">${clickPct}%</td>
+      <td class="num" style="color:#8b5cf6;font-weight:600">${m.efficiency.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 文件拖拽 ──
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  const files = e.dataTransfer.files;
+  if (files.length > 0) document.getElementById('file-input').files = files;
+});
+document.getElementById('file-input').addEventListener('change', function() {
+  console.log('File input change event triggered');
+  const f = this.files[0];
+  if (f) {
+    console.log('File selected:', f.name, f.size);
+    document.getElementById('filename-display').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(0) + ' KB)';
+    document.getElementById('file-info').innerHTML = `<span class="file-info-badge">📁 ${f.name}</span>`;
+  } else {
+    console.log('No file selected');
+  }
+});
+
+// ═══════════════════════════════════════════════════
+// 交叉分析模块：业务线 × 词包（可筛选版）
+// ═══════════════════════════════════════════════════
+
+let crossCharts = {};
+let crossSelectedL1 = new Set();
+let crossSelectedL2 = new Set();
+
+function initCrossFilters() {
+  // 获取所有唯一的l1和l2
+  const l1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
+  const l2Set = new Set(allResults.map(r => r.l2).filter(Boolean));
+  
+  // 默认全选
+  crossSelectedL1 = new Set(l1Set);
+  crossSelectedL2 = new Set(l2Set);
+  
+  // 渲染业务线筛选器
+  const l1Container = document.getElementById('cross-filter-l1');
+  l1Container.innerHTML = [...l1Set].sort().map(l1 => 
+    `<span class="filter-tag active" data-l1="${l1}" onclick="toggleCrossL1(this)">${l1}</span>`
+  ).join('');
+  
+  // 渲染词包筛选器
+  const l2Container = document.getElementById('cross-filter-l2');
+  l2Container.innerHTML = [...l2Set].sort().map(l2 => 
+    `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
+  ).join('');
+}
+
+function toggleCrossL1(el) {
+  const l1 = el.dataset.l1;
+  if (crossSelectedL1.has(l1)) {
+    crossSelectedL1.delete(l1);
+    el.classList.remove('active');
+  } else {
+    crossSelectedL1.add(l1);
+    el.classList.add('active');
+  }
+  // 业务线变化后，联动更新词包标签（只显示选中业务线下存在的词包）
+  updateCrossL2Tags();
+  renderCrossAnalysis();
+}
+
+// 根据当前选中的业务线，动态更新词包筛选标签
+function updateCrossL2Tags() {
+  // 计算选中业务线下实际存在的词包集合
+  let availableL2s;
+  if (crossSelectedL1.size === 0) {
+    availableL2s = new Set();
+  } else {
+    availableL2s = new Set(
+      allResults
+        .filter(r => r.l1 && crossSelectedL1.has(r.l1) && r.l2)
+        .map(r => r.l2)
+    );
+  }
+
+  const l2Container = document.getElementById('cross-filter-l2');
+
+  // 如果选中了全部业务线（等于初始全量），直接显示全部词包
+  const allL1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
+  const isAllSelected = [...allL1Set].every(l1 => crossSelectedL1.has(l1));
+
+  if (isAllSelected) {
+    availableL2s = new Set(allResults.map(r => r.l2).filter(Boolean));
+  }
+
+  // 重新渲染词包标签，默认全选可用词包
+  crossSelectedL2 = new Set(availableL2s);
+  l2Container.innerHTML = [...availableL2s].sort().map(l2 =>
+    `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
+  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（当前业务线下无词包）</span>';
+}
+
+function toggleCrossL2(el) {
+  const l2 = el.dataset.l2;
+  if (crossSelectedL2.has(l2)) {
+    crossSelectedL2.delete(l2);
+    el.classList.remove('active');
+  } else {
+    crossSelectedL2.add(l2);
+    el.classList.add('active');
+  }
+  renderCrossAnalysis();
+}
+
+function clearCrossFilters() {
+  crossSelectedL1 = new Set(allResults.map(r => r.l1).filter(Boolean));
+  crossSelectedL2 = new Set(allResults.map(r => r.l2).filter(Boolean));
+  
+  document.querySelectorAll('#cross-filter-l1 .filter-tag').forEach(el => {
+    el.classList.add('active');
+  });
+
+  // 清除时恢复全量词包标签
+  const l2Container = document.getElementById('cross-filter-l2');
+  l2Container.innerHTML = [...crossSelectedL2].sort().map(l2 =>
+    `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
+  ).join('');
+  
+  renderCrossAnalysis();
+}
+
+function calculateCrossMetrics() {
+  const metrics = {};
+  
+  // 只统计选中的业务线和词包
+  allResults.forEach(r => {
+    const l1 = r.l1 || '未分类';
+    const l2 = r.l2 || '通用词';
+    
+    if (!crossSelectedL1.has(l1) || !crossSelectedL2.has(l2)) return;
+    
+    const key = l1 + '|||' + l2;
+    if (!metrics[key]) {
+      metrics[key] = { l1, l2, count: 0, cost: 0, impression: 0, click: 0 };
+    }
+    metrics[key].count++;
+    metrics[key].cost += r.cost || 0;
+    metrics[key].impression += r.impression || 0;
+    metrics[key].click += r.click || 0;
+  });
+  
+  // 计算衍生指标
+  Object.values(metrics).forEach(m => {
+    m.ctr = m.impression > 0 ? (m.click / m.impression * 100) : 0;
+    m.cpc = m.click > 0 ? (m.cost / m.click) : 0;
+    m.efficiency = m.cpc > 0 ? (m.ctr / m.cpc * 100) : 0;
+  });
+  
+  return metrics;
+}
+
+function renderCrossAnalysis() {
+  const metrics = calculateCrossMetrics();
+  const metricField = document.getElementById('cross-metric-select').value;
+  
+  // 获取所有唯一的l1和l2（只包含选中的）
+  const l1s = [...crossSelectedL1].sort();
+  const l2s = [...crossSelectedL2].sort();
+  
+  if (l1s.length === 0 || l2s.length === 0) {
+    document.getElementById('cross-summary-cards').innerHTML = '<p style="color:#9ca3af;text-align:center;">请选择至少一个业务线和词包</p>';
+    return;
+  }
+  
+  // 构建矩阵
+  const matrix = {};
+  l1s.forEach(l1 => {
+    matrix[l1] = {};
+    l2s.forEach(l2 => {
+      const key = l1 + '|||' + l2;
+      matrix[l1][l2] = metrics[key] || { l1, l2, count: 0, cost: 0, impression: 0, click: 0, ctr: 0, cpc: 0, efficiency: 0 };
+    });
+  });
+  
+  // 渲染概览卡片
+  renderCrossSummaryCards(metrics);
+  
+  // 渲染图表
+  renderCrossCharts(l1s, l2s, matrix, metricField);
+  
+  // 渲染热力图
+  renderCrossHeatmap(l1s, l2s, matrix, metricField);
+  
+  // 渲染详细表格
+  renderCrossDetailTable(metrics);
+}
+
+function renderCrossSummaryCards(metrics) {
+  const values = Object.values(metrics);
+  const totalCount = values.reduce((sum, m) => sum + m.count, 0);
+  const totalCost = values.reduce((sum, m) => sum + m.cost, 0);
+  const totalImp = values.reduce((sum, m) => sum + m.impression, 0);
+  const totalClick = values.reduce((sum, m) => sum + m.click, 0);
+  const avgCtr = totalImp > 0 ? (totalClick / totalImp * 100) : 0;
+  const avgCpc = totalClick > 0 ? (totalCost / totalClick) : 0;
+  
+  const cards = [
+    { label: '关键词数', value: totalCount.toLocaleString(), color: '#1a73e8' },
+    { label: '总花费', value: '¥' + totalCost.toLocaleString(), color: '#ef4444' },
+    { label: '总曝光', value: totalImp.toLocaleString(), color: '#3b82f6' },
+    { label: '总点击', value: totalClick.toLocaleString(), color: '#10b981' },
+    { label: '平均CTR', value: avgCtr.toFixed(2) + '%', color: '#f59e0b' },
+    { label: '平均CPC', value: '¥' + avgCpc.toFixed(2), color: '#8b5cf6' },
+  ];
+  
+  document.getElementById('cross-summary-cards').innerHTML = cards.map(c => `
+    <div style="background:linear-gradient(135deg,${c.color}15,${c.color}08);border-radius:8px;padding:12px;text-align:center;border:1px solid ${c.color}30;"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px ${c.color}20'" 
+      onmouseout="this.style.transform='';this.style.boxShadow=''"
+      style="transition:all .2s"
+    >
+      <div style="font-size:20px;font-weight:700;color:${c.color};margin-bottom:4px;">${c.value}</div>
+      <div style="font-size:11px;color:#6b7280;">${c.label}</div>
+    </div>
+  `).join('');
+}
+
+function renderCrossCharts(l1s, l2s, matrix, metricField) {
+  // 计算合计并排序
+  const l1Totals = {};
+  l1s.forEach(l1 => {
+    let sum = 0;
+    l2s.forEach(l2 => sum += matrix[l1][l2][metricField] || 0);
+    l1Totals[l1] = sum;
+  });
+  
+  const l2Totals = {};
+  l2s.forEach(l2 => {
+    let sum = 0;
+    l1s.forEach(l1 => sum += matrix[l1][l2][metricField] || 0);
+    l2Totals[l2] = sum;
+  });
+  
+  // 按合计值降序排序
+  const sortedL1s = [...l1s].sort((a, b) => l1Totals[b] - l1Totals[a]);
+  const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  
+  // 业务线维度图表（已排序）
+  const l1Data = sortedL1s.map(l1 => l1Totals[l1]);
+  const l1Colors = sortedL1s.map(l1 => L1_META[l1]?.color || '#999');
+  
+  if (crossCharts.l1) crossCharts.l1.destroy();
+  crossCharts.l1 = new Chart(document.getElementById('chart-cross-l1'), {
+    type: 'bar',
+    data: {
+      labels: sortedL1s,
+      datasets: [{
+        label: getMetricLabel(metricField),
+        data: l1Data,
+        backgroundColor: l1Colors,
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { 
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = l1Data.reduce((a, b) => a + b, 0);
+              const pct = total > 0 ? (ctx.parsed.y / total * 100).toFixed(1) : 0;
+              return ` ${ctx.parsed.y.toLocaleString()} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: { y: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
+    }
+  });
+  
+  // 词包维度图表（已排序）
+  const l2Data = sortedL2s.map(l2 => l2Totals[l2]);
+  const totalL2 = l2Data.reduce((a, b) => a + b, 0);
+  
+  if (crossCharts.l2) crossCharts.l2.destroy();
+  crossCharts.l2 = new Chart(document.getElementById('chart-cross-l2'), {
+    type: 'doughnut',
+    data: {
+      labels: sortedL2s,
+      datasets: [{
+        data: l2Data,
+        backgroundColor: sortedL2s.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, usePointStyle: true } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = totalL2 > 0 ? (ctx.parsed / totalL2 * 100).toFixed(1) : 0;
+              return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderCrossHeatmap(l1s, l2s, matrix, metricField) {
+  // 计算每个业务线的合计值，用于排序
+  const l1Totals = {};
+  l1s.forEach(l1 => {
+    let sum = 0;
+    l2s.forEach(l2 => {
+      sum += matrix[l1][l2][metricField] || 0;
+    });
+    l1Totals[l1] = sum;
+  });
+  
+  // 计算每个词包的合计值，用于排序
+  const l2Totals = {};
+  l2s.forEach(l2 => {
+    let sum = 0;
+    l1s.forEach(l1 => {
+      sum += matrix[l1][l2][metricField] || 0;
+    });
+    l2Totals[l2] = sum;
+  });
+  
+  // 按合计值降序排序
+  const sortedL1s = [...l1s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  
+  // 计算所有数据的最大值用于颜色映射
+  let maxValue = 0;
+  sortedL1s.forEach(l1 => {
+    sortedL2s.forEach(l2 => {
+      maxValue = Math.max(maxValue, matrix[l1][l2][metricField] || 0);
+    });
+  });
+  
+  // 计算总计（用于百分比计算）
+  let grandTotal = 0;
+  sortedL1s.forEach(l1 => {
+    sortedL2s.forEach(l2 => {
+      grandTotal += matrix[l1][l2][metricField] || 0;
+    });
+  });
+  
+  // 生成热力图HTML
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  
+  // 表头
+  html += '<thead><tr><th style="background:#f9fafb;padding:8px;border:1px solid #e5e7eb;">业务线 \\ 词包</th>';
+  sortedL2s.forEach(l2 => {
+    const colTotal = l2Totals[l2] || 0;
+    const colPct = grandTotal > 0 ? (colTotal / grandTotal * 100).toFixed(1) : 0;
+    html += `<th style="background:#f9fafb;padding:8px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">
+      <div>${l2}</div>
+      <div style="font-size:10px;color:#6b7280;font-weight:normal;">${formatMetricValue(colTotal, metricField)}</div>
+      <div style="font-size:10px;color:#1a73e8;font-weight:normal;">${colPct}%</div>
+    </th>`;
+  });
+  html += `<th style="background:#f9fafb;padding:8px;border:1px solid #e5e7eb;text-align:center;font-size:11px;">
+    <div>合计</div>
+    <div style="font-size:10px;color:#6b7280;font-weight:normal;">${formatMetricValue(grandTotal, metricField)}</div>
+  </th></tr></thead>`;
+  
+  // 表体
+  html += '<tbody>';
+  sortedL1s.forEach(l1 => {
+    const rowTotal = l1Totals[l1] || 0;
+    const rowPct = grandTotal > 0 ? (rowTotal / grandTotal * 100).toFixed(1) : 0;
+    
+    html += `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb;">
+      <div>${l1}</div>
+      <div style="font-size:10px;color:#6b7280;font-weight:normal;">${formatMetricValue(rowTotal, metricField)}</div>
+      <div style="font-size:10px;color:#1a73e8;font-weight:normal;">${rowPct}%</div>
+    </td>`;
+    
+    sortedL2s.forEach(l2 => {
+      const value = matrix[l1][l2][metricField] || 0;
+      
+      // 计算颜色强度
+      const intensity = maxValue > 0 ? (value / maxValue) : 0;
+      const color = getHeatmapColor(intensity, metricField);
+      
+      // 计算百分比（占总计）
+      const pct = grandTotal > 0 ? (value / grandTotal * 100).toFixed(1) : 0;
+      const rowPct = rowTotal > 0 ? (value / rowTotal * 100).toFixed(1) : 0;
+      
+      html += `<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;background:${color};cursor:pointer;transition:all .15s;"
+        onmouseover="this.style.transform='scale(1.05)';this.style.zIndex='10';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)';this.style.position='relative'"
+        onmouseout="this.style.transform='';this.style.zIndex='';this.style.boxShadow=''"
+        title="${l1} × ${l2}: ${formatMetricValue(value, metricField)} (${pct}% of total)"
+      >
+        <div style="font-weight:600;font-size:13px;">${formatMetricValue(value, metricField)}</div>
+        <div style="font-size:10px;color:#374151;margin-top:2px;">${pct}%</div>
+        <div style="font-size:9px;color:#6b7280;">行${rowPct}%</div>
+      </td>`;
+    });
+    
+    html += `<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:600;background:#f3f4f6;">
+      <div>${formatMetricValue(rowTotal, metricField)}</div>
+      <div style="font-size:10px;color:#1a73e8;">${rowPct}%</div>
+    </td></tr>`;
+  });
+  
+  html += '</tbody></table>';
+  
+  document.getElementById('cross-heatmap').innerHTML = html;
+}
+
+let crossSortField = 'cost';
+let crossSortDesc = true;
+
+function sortCrossTable(field) {
+  if (crossSortField === field) {
+    crossSortDesc = !crossSortDesc;
+  } else {
+    crossSortField = field;
+    crossSortDesc = true;
+  }
+  renderCrossAnalysis();
+}
+
+function renderCrossDetailTable(metrics) {
+  const values = Object.values(metrics);
+  
+  // 排序
+  values.sort((a, b) => {
+    const aVal = a[crossSortField] || 0;
+    const bVal = b[crossSortField] || 0;
+    return crossSortDesc ? bVal - aVal : aVal - bVal;
+  });
+  
+  // 计算总计用于百分比
+  const totalCost = values.reduce((sum, m) => sum + m.cost, 0);
+  const totalImp = values.reduce((sum, m) => sum + m.impression, 0);
+  const totalClick = values.reduce((sum, m) => sum + m.click, 0);
+  
+  // 渲染动态表头（带排序指示器）
+  const headers = [
+    { field: null, label: '业务线' },
+    { field: null, label: '词包' },
+    { field: 'count', label: '关键词数' },
+    { field: 'cost', label: '花费' },
+    { field: 'impression', label: '曝光' },
+    { field: 'click', label: '点击' },
+    { field: 'ctr', label: 'CTR' },
+    { field: 'cpc', label: 'CPC' },
+    { field: 'efficiency', label: '效率评分' }
+  ];
+  
+  const theadHtml = headers.map(h => {
+    if (!h.field) return `<th>${h.label}</th>`;
+    const arrow = crossSortField === h.field ? (crossSortDesc ? ' ▼' : ' ▲') : '';
+    return `<th style="cursor:pointer;" onclick="sortCrossTable('${h.field}')" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background=''">${h.label}${arrow}</th>`;
+  }).join('');
+  document.getElementById('cross-detail-header').innerHTML = theadHtml;
+  
+  const tbody = document.querySelector('#table-cross-detail tbody');
+  tbody.innerHTML = values.map(m => {
+    const costPct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    const impPct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
+    const clickPct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
+    
+    return `
+    <tr>
+      <td><span class="l1-badge ${L1_META[m.l1]?.cls || ''}">${m.l1}</span></td>
+      <td><span class="l2-tag">${m.l2}</span></td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#ef4444">
+        ¥${m.cost.toLocaleString()}
+        <div style="font-size:10px;color:#6b7280;">${costPct}%</div>
+      </td>
+      <td class="num">
+        ${m.impression.toLocaleString()}
+        <div style="font-size:10px;color:#6b7280;">${impPct}%</div>
+      </td>
+      <td class="num">
+        ${m.click.toLocaleString()}
+        <div style="font-size:10px;color:#6b7280;">${clickPct}%</div>
+      </td>
+      <td class="num">${m.ctr.toFixed(2)}%</td>
+      <td class="num">¥${m.cpc.toFixed(2)}</td>
+      <td class="num" style="color:${m.efficiency >= 10 ? '#10b981' : m.efficiency >= 5 ? '#f59e0b' : '#ef4444'};font-weight:600">
+        ${m.efficiency.toFixed(1)}
+      </td>
+    </tr>`;
+  }).join('');
+  
+  // 添加合计行
+  const totalRow = `
+    <tr style="background:#f3f4f6;font-weight:600;">
+      <td colspan="2">合计</td>
+      <td class="num">${values.reduce((sum, m) => sum + m.count, 0).toLocaleString()}</td>
+      <td class="num">¥${totalCost.toLocaleString()}</td>
+      <td class="num">${totalImp.toLocaleString()}</td>
+      <td class="num">${totalClick.toLocaleString()}</td>
+      <td class="num">${totalImp > 0 ? (totalClick/totalImp*100).toFixed(2) : 0}%</td>
+      <td class="num">¥${totalClick > 0 ? (totalCost/totalClick).toFixed(2) : 0}</td>
+      <td></td>
+    </tr>
+  `;
+  tbody.innerHTML += totalRow;
+}
+
+function getHeatmapColor(intensity, metricField) {
+  // 根据指标类型选择颜色主题
+  if (metricField === 'efficiency') {
+    // 效率：绿->黄->红
+    if (intensity >= 0.7) return `rgba(16, 185, 129, ${0.2 + intensity * 0.5})`;
+    if (intensity >= 0.3) return `rgba(245, 158, 11, ${0.2 + intensity * 0.5})`;
+    return `rgba(239, 68, 68, ${0.2 + intensity * 0.5})`;
+  } else if (metricField === 'ctr') {
+    // CTR：蓝->绿
+    return `rgba(59, 130, 246, ${0.15 + intensity * 0.55})`;
+  } else if (metricField === 'cpc') {
+    // CPC：红（高CPC=红色）
+    return `rgba(239, 68, 68, ${0.15 + intensity * 0.55})`;
+  } else {
+    // 默认：蓝色渐变
+    return `rgba(26, 115, 232, ${0.15 + intensity * 0.55})`;
+  }
+}
+
+function getMetricLabel(metricField) {
+  const labels = {
+    count: '关键词数量',
+    cost: '花费',
+    impression: '曝光量',
+    click: '点击量',
+    ctr: 'CTR',
+    cpc: 'CPC',
+    efficiency: '效率评分'
+  };
+  return labels[metricField] || metricField;
+}
+
+function formatMetricValue(value, metricField) {
+  if (value === 0 || value === undefined || value === null) return '-';
+  
+  switch (metricField) {
+    case 'cost':
+    case 'cpc':
+      return '¥' + value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    case 'ctr':
+      return value.toFixed(2) + '%';
+    case 'efficiency':
+      return value.toFixed(1);
+    default:
+      return value.toLocaleString();
+  }
+}
+
+// 修改renderAll函数，添加交叉分析渲染
+const originalRenderAll = renderAll;
+renderAll = function(results, ms) {
+  originalRenderAll(results, ms);
+  
+  // 渲染交叉分析
+  const hasCostData = results.some(r => r.cost > 0);
+  if (hasCostData) {
+    document.getElementById('cross-analysis-section').classList.remove('hidden');
+    initCrossFilters();
+    renderCrossAnalysis();
+  } else {
+    document.getElementById('cross-analysis-section').classList.add('hidden');
+  }
+};
+
+// ═══════════════════════════════════════════════════
+// 关键词词云模块
+// ═══════════════════════════════════════════════════
+
+let wcSelectedL1 = new Set();
+let wcSelectedL2 = new Set();
+let wcWordcloudInstance = null;
+
+function initWcFilters() {
+  const l1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
+  const l2Set = new Set(allResults.map(r => r.l2).filter(Boolean));
+  wcSelectedL1 = new Set(l1Set);
+  wcSelectedL2 = new Set(l2Set);
+
+  const l1Container = document.getElementById('wc-filter-l1');
+  l1Container.innerHTML = [...l1Set].sort().map(l1 =>
+    `<span class="filter-tag active" data-l1="${l1}" onclick="toggleWcL1(this)">${l1}</span>`
+  ).join('');
+
+  updateWcL2Tags();
+}
+
+function toggleWcL1(el) {
+  const l1 = el.dataset.l1;
+  if (wcSelectedL1.has(l1)) {
+    wcSelectedL1.delete(l1);
+    el.classList.remove('active');
+  } else {
+    wcSelectedL1.add(l1);
+    el.classList.add('active');
+  }
+  updateWcL2Tags();
+  renderWordCloud();
+}
+
+function updateWcL2Tags() {
+  let availableL2s;
+  if (wcSelectedL1.size === 0) {
+    availableL2s = new Set();
+  } else {
+    availableL2s = new Set(
+      allResults
+        .filter(r => r.l1 && wcSelectedL1.has(r.l1) && r.l2)
+        .map(r => r.l2)
+    );
+  }
+  const allL1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
+  const isAllSelected = [...allL1Set].every(l1 => wcSelectedL1.has(l1));
+  if (isAllSelected) {
+    availableL2s = new Set(allResults.map(r => r.l2).filter(Boolean));
+  }
+  wcSelectedL2 = new Set(availableL2s);
+  const l2Container = document.getElementById('wc-filter-l2');
+  l2Container.innerHTML = [...availableL2s].sort().map(l2 =>
+    `<span class="filter-tag active" data-l2="${l2}" onclick="toggleWcL2(this)">${l2}</span>`
+  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（当前业务线下无词包）</span>';
+}
+
+function toggleWcL2(el) {
+  const l2 = el.dataset.l2;
+  if (wcSelectedL2.has(l2)) {
+    wcSelectedL2.delete(l2);
+    el.classList.remove('active');
+  } else {
+    wcSelectedL2.add(l2);
+    el.classList.add('active');
+  }
+  renderWordCloud();
+}
+
+function clearWcFilters() {
+  wcSelectedL1 = new Set(allResults.map(r => r.l1).filter(Boolean));
+  wcSelectedL2 = new Set(allResults.map(r => r.l2).filter(Boolean));
+  document.querySelectorAll('#wc-filter-l1 .filter-tag').forEach(el => el.classList.add('active'));
+  updateWcL2Tags();
+  renderWordCloud();
+}
+
+function renderWordCloud() {
+  const canvas = document.getElementById('wordcloud-canvas');
+  const wrap = document.getElementById('wordcloud-wrap');
+  const tooltip = document.getElementById('wordcloud-tooltip');
+  const metric = document.getElementById('wc-metric-select').value;
+  const metricLabel = { cost: '消耗', impression: '展示', click: '点击' }[metric];
+
+  // 根据筛选条件过滤数据
+  const filtered = allResults.filter(r =>
+    wcSelectedL1.has(r.l1) && wcSelectedL2.has(r.l2)
+  );
+
+  // 高清 canvas（处理 Retina 屏幕）
+  const dpr = window.devicePixelRatio || 1;
+  const width = wrap.offsetWidth;
+  const height = wrap.offsetHeight;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
+
+  if (filtered.length === 0) {
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('无匹配关键词', width / 2, height / 2);
+    return;
+  }
+
+  // 判断是否有对应指标数据
+  const hasMetricData = filtered.some(r => r[metric] > 0);
+
+  // 构建词列表：[text, weight, l1, l2, kw]
+  const wordMap = {};
+  filtered.forEach(r => {
+    const kw = r.kw.trim();
+    if (!kw) return;
+    if (!wordMap[kw]) {
+      wordMap[kw] = { text: kw, weight: 0, l1: r.l1, l2: r.l2 };
+    }
+    wordMap[kw].weight += hasMetricData ? (r[metric] || 1) : 1;
+  });
+
+  const wordList = Object.values(wordMap);
+  const maxWeight = Math.max(...wordList.map(w => w.weight));
+  const minWeight = Math.min(...wordList.map(w => w.weight));
+  const weightRange = maxWeight - minWeight || 1;
+
+  // 构建 wordcloud2 所需格式 [[word, weight], ...]
+  const wcData = wordList.map(w => {
+    const normalized = (w.weight - minWeight) / weightRange;
+    const fontSize = Math.round(14 + normalized * 50);
+    const color = L1_META[w.l1] ? L1_META[w.l1].color : '#6b7280';
+    return [w.text, fontSize, color, w.l1, w.l2, w.weight];
+  });
+
+  // 隐藏 tooltip
+  tooltip.style.display = 'none';
+
+  // 渲染词云
+  try {
+    WordCloud(canvas, {
+      list: wcData.map(item => [item[0], item[1]]),
+      gridSize: Math.round(10 * dpr * width / 600),
+      weightFactor: function(size) { return size * dpr; },
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+      fontWeight: 600,
+      color: function(word, weight) {
+        const item = wcData.find(d => d[0] === word);
+        return item ? item[2] : '#6b7280';
+      },
+      backgroundColor: 'transparent',
+      rotateRatio: 0.3,
+      rotationSteps: 2,
+      minRotation: -Math.PI / 2,
+      maxRotation: Math.PI / 2,
+      drawOutOfBound: false,
+      shrinkToFit: true,
+      shuffle: true,
+      hover: function(item, dimension, event) {
+        if (item) {
+          const wcItem = wcData.find(d => d[0] === item[0]);
+          if (wcItem) {
+            tooltip.innerHTML = `<b>${wcItem[0]}</b><br><span style="opacity:.7">${wcItem[3]} · ${wcItem[4]}</span><br>${metricLabel}: ${Number(wcItem[5]).toLocaleString()}`;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.offsetX + 12) + 'px';
+            tooltip.style.top = (event.offsetY - 50) + 'px';
+          }
+        } else {
+          tooltip.style.display = 'none';
+        }
+      },
+      click: function(item) {
+        if (item) {
+          const wcItem = wcData.find(d => d[0] === item[0]);
+          if (wcItem) {
+            document.getElementById('search-box').value = wcItem[0];
+            renderTable(1);
+            document.querySelector('.card.mb-4:last-child').scrollIntoView({ behavior: 'smooth' });
+          }
+        }
+      }
+    });
+  } catch (e) {
+    // wordcloud2 容错
+    console.warn('词云渲染异常:', e);
+  }
+}
+
+</script>
+</body>
+</html>
