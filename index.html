@@ -498,7 +498,7 @@ function isInternational(kw) {
     if (!hasAny(kw, intlIntent)) return false;
   }
   // POI 缩写映射到国际城市（如"港迪"→香港）
-  const poiIntl = Object.keys(POI_CITY_MAP_JS).some(p => kw.includes(p) && INTERNATIONAL_KEYWORDS.includes(POI_CITY_MAP_JS[p]));
+  const poiIntl = POI_ABBR_KEYS.some(p => kw.includes(p) && INTERNATIONAL_KEYWORDS.includes(POI_ABBR_MAP[p]));
   return hasAny(kw, INTERNATIONAL_KEYWORDS) || hasAny(kw, INTL_CITIES_JS) || poiIntl;
 }
 
@@ -515,7 +515,7 @@ function hasIntlCity(kw) {
     .filter(w => w.length >= 2 && !INTL_GENERIC_WORDS.includes(w))
     .some(w => kw.includes(w));
   // POI 缩写映射（如"港迪"→香港）
-  const hasPoiGeoWord = Object.keys(POI_CITY_MAP_JS).some(p => kw.includes(p));
+  const hasPoiGeoWord = POI_ABBR_KEYS.some(p => kw.includes(p));
   return hasRealGeoWord || hasAny(kw, INTL_CITIES_JS) || hasPoiGeoWord;
 }
 
@@ -572,8 +572,11 @@ const INTL_CITY_COUNTRY_JS = {
 const INTL_CITIES_JS = Object.keys(INTL_CITY_COUNTRY_JS).sort((a,b) => b.length - a.length);
 const COUNTRY_NAMES_JS = Object.keys(COUNTRY_MAP_JS).sort((a,b) => b.length - a.length);
 
+// POI 缩写→城市映射（仅包含非地名的缩写，如"港迪"→香港）
+const POI_ABBR_MAP = {'港迪':'香港','上迪':'上海','浦东迪':'上海'};
+const POI_ABBR_KEYS = Object.keys(POI_ABBR_MAP);
+
 const POI_CITY_MAP_JS = {
-  '港迪':'香港','上迪':'上海','浦东迪':'上海',
   '731遗址':'哈尔滨','798':'北京','798艺术区':'北京','CBD':'北京','七仙岭':'保亭','七宝老街':'上海',
   '七彩丹霞':'张掖','七星岩':'肇庆','万山群岛':'珠海','万峰林':'黔西南','三亚免税城':'三亚',
   '三亚凤凰机场':'三亚','三亚千古情':'三亚','三亚机场':'三亚','三亚湾':'三亚','三坊七巷':'福州',
@@ -724,10 +727,9 @@ const POI_CITY_MAP_JS = {
 function extractCountry(kw, l1) {
   if (['国内酒店','国内机票','火车票'].includes(l1)) return '中国';
   // POI 缩写映射（如"港迪"→香港→中国）
-  const poiKeys = Object.keys(POI_CITY_MAP_JS).sort((a,b) => b.length - a.length);
-  for (const p of poiKeys) {
+  for (const p of POI_ABBR_KEYS) {
     if (kw.includes(p)) {
-      const mappedCity = POI_CITY_MAP_JS[p];
+      const mappedCity = POI_ABBR_MAP[p];
       if (COUNTRY_MAP_JS[mappedCity]) return COUNTRY_MAP_JS[mappedCity];
       if (INTL_CITY_COUNTRY_JS[mappedCity]) return INTL_CITY_COUNTRY_JS[mappedCity];
     }
@@ -744,10 +746,9 @@ function extractCountry(kw, l1) {
 
 function extractCity(kw, l1) {
   // 先通过 POI 缩写映射查找城市（如"港迪"→香港）
-  const poiKeys = Object.keys(POI_CITY_MAP_JS).sort((a,b) => b.length - a.length);
-  for (const p of poiKeys) {
+  for (const p of POI_ABBR_KEYS) {
     if (kw.includes(p)) {
-      const mappedCity = POI_CITY_MAP_JS[p];
+      const mappedCity = POI_ABBR_MAP[p];
       if (mappedCity) return mappedCity;
     }
   }
