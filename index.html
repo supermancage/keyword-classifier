@@ -576,6 +576,17 @@ const COUNTRY_NAMES_JS = Object.keys(COUNTRY_MAP_JS).sort((a,b) => b.length - a.
 const POI_ABBR_MAP = {'港迪':'香港','上迪':'上海','浦东迪':'上海'};
 const POI_ABBR_KEYS = Object.keys(POI_ABBR_MAP);
 
+// 兜底判断用的合并信号词库（预构建，避免每次分类时 concat）
+const ALL_CORE_SIGNALS = [].concat(
+  HOTEL_KEYWORDS, FLIGHT_KEYWORDS, TRAIN_KEYWORDS,
+  SCENIC_FEATURE_WORDS, HOTEL_CHAINS, AIRLINE_BRANDS,
+  TC_BRANDS, COMPETITOR_BRANDS, TRAVEL_GUIDE,
+  FESTIVAL_KEYWORDS, INTERNATIONAL_KEYWORDS,
+  STATION_KEYWORDS, FLIGHT_PRODUCTS, FLIGHT_SCENARIOS,
+  INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
+  PREMIUM_QUALITY, PRICE_SENSITIVE, URGENT_NEED, GEO_LOCATION
+);
+
 const POI_CITY_MAP_JS = {
   '731遗址':'哈尔滨','798':'北京','798艺术区':'北京','CBD':'北京','七仙岭':'保亭','七宝老街':'上海',
   '七彩丹霞':'张掖','七星岩':'肇庆','万山群岛':'珠海','万峰林':'黔西南','三亚免税城':'三亚',
@@ -857,14 +868,7 @@ function classify(kw) {
     }
     // 兜底——无核心业务信号则标待确认
     else {
-      const coreSignals = HOTEL_KEYWORDS.concat(FLIGHT_KEYWORDS, TRAIN_KEYWORDS,
-        SCENIC_FEATURE_WORDS, HOTEL_CHAINS, AIRLINE_BRANDS,
-        TC_BRANDS, COMPETITOR_BRANDS, TRAVEL_GUIDE,
-        FESTIVAL_KEYWORDS, INTERNATIONAL_KEYWORDS,
-        STATION_KEYWORDS, FLIGHT_PRODUCTS, FLIGHT_SCENARIOS,
-        INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
-        PREMIUM_QUALITY, PRICE_SENSITIVE, URGENT_NEED, GEO_LOCATION);
-      const hasCore = hasAny(kw, coreSignals) || hasCity(kw) || hasIntlCity(kw);
+      const hasCore = hasAny(kw, ALL_CORE_SIGNALS) || hasCity(kw) || hasIntlCity(kw);
       if (!hasCore) {
         l1 = '待确认'; l2 = '通用词';
       } else {
@@ -1033,13 +1037,14 @@ function loadSample() {
 }
 
 async function runClassify() {
-  console.log('runClassify called');
   const t0 = performance.now();
   showLoading(true);
 
+  // 让浏览器先渲染 loading 动画，避免同步代码阻塞 UI
+  await new Promise(r => setTimeout(r, 0));
+
   let raw = [];
   const tab = document.querySelector('.tab-btn.active').dataset.tab;
-  console.log('Current tab:', tab);
 
   try {
     if (tab === 'paste') {
@@ -1048,7 +1053,6 @@ async function runClassify() {
       raw = text.split('\n').map(s => s.trim()).filter(Boolean);
     } else {
       const file = document.getElementById('file-input').files[0];
-      console.log('Upload mode, file:', file);
       if (!file) { showLoading(false); alert('请先上传文件'); return; }
       const ab = await file.arrayBuffer();
       const data = new Uint8Array(ab);
@@ -1089,6 +1093,7 @@ async function runClassify() {
 
   if (raw.length === 0) { showLoading(false); alert('未找到关键词'); return; }
 
+  const tClassify = performance.now();
   allResults = raw.map(item => {
     const result = classify(item.kw || item);
     if (typeof item === 'object') {
@@ -1102,7 +1107,10 @@ async function runClassify() {
     }
     return result;
   });
+  const msClassify = Math.round(performance.now() - tClassify);
+
   const ms = Math.round(performance.now() - t0);
+  console.log(`分类 ${raw.length} 条关键词耗时: ${msClassify}ms（总耗时: ${ms}ms，含文件读取 ${ms - msClassify}ms）`);
   showLoading(false);
   renderAll(allResults, ms);
 }
