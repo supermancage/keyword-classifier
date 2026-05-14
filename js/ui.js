@@ -18,10 +18,16 @@ KC.UI.L1_META = {
 KC.UI.L1_ORDER = ['国内酒店','国内机票','国际酒店','国际机票','景区','火车票','待确认'];
 KC.UI.L2_COLORS = ['#1a73e8','#10b981','#8b5cf6','#f59e0b','#ef4444','#ec4899','#0d9488','#f97316','#6366f1','#84cc16','#06b6d4','#e11d48'];
 
+// 局部别名（函数内裸引用 → 命名空间属性的快捷方式）
+const L1_META = KC.UI.L1_META;
+const L1_ORDER = KC.UI.L1_ORDER;
+const L2_COLORS = KC.UI.L2_COLORS;
+const PAGE_SIZE = 50;
+KC.UI.PAGE_SIZE = PAGE_SIZE;
+
 let allResults = [];
 let filteredResults = [];
 let currentPage = 1;
-KC.UI.PAGE_SIZE = 50;
 let charts = {};
 
 KC.State = {
@@ -79,6 +85,7 @@ async function runClassify() {
       if (!text) { showLoading(false); alert('请输入关键词'); return; }
       raw = text.split('\n').map(s => s.trim()).filter(Boolean);
     } else {
+      if (typeof XLSX === 'undefined') { showLoading(false); alert('Excel 解析库未加载，请刷新页面重试或使用粘贴模式'); return; }
       const file = document.getElementById('file-input').files[0];
       if (!file) { showLoading(false); alert('请先上传文件'); return; }
       const ab = await file.arrayBuffer();
@@ -236,30 +243,30 @@ function renderAll(results, ms) {
       L1_META[l1].pct = l1Count[l1] / results.length;
   });
 
-  // 渲染图表
-  renderL1Chart(l1Count, results.length);
-  renderL2Chart(l2Count, results.length);
+  // 渲染表格（优先渲染，确保核心数据始终可见）
+  filteredResults = [...results];
+  renderTable(1);
+
+  // 渲染图表（CDN 可能未加载，加容错）
+  try { renderL1Chart(l1Count, results.length); } catch(e) { console.warn('L1图表渲染跳过:', e.message); }
+  try { renderL2Chart(l2Count, results.length); } catch(e) { console.warn('L2图表渲染跳过:', e.message); }
 
   // 渲染数据分析（如果有花费数据）
   const hasCostData = results.some(r => r.cost > 0);
   if (hasCostData) {
     document.getElementById('analysis-section').classList.remove('hidden');
     document.getElementById('cross-analysis-section').classList.remove('hidden');
-    renderCostAnalysis();
+    try { renderCostAnalysis(); } catch(e) { console.warn('花费分析渲染跳过:', e.message); }
     initCrossFilters();
-    renderCrossAnalysis();
+    try { renderCrossAnalysis(); } catch(e) { console.warn('交叉分析渲染跳过:', e.message); }
   } else {
     document.getElementById('analysis-section').classList.add('hidden');
     document.getElementById('cross-analysis-section').classList.add('hidden');
   }
 
-  // 渲染表格
-  filteredResults = [...results];
-  renderTable(1);
-
   // 渲染关键词词云
-  initWcFilters();
-  renderWordCloud();
+  try { initWcFilters(); } catch(e) { console.warn('词云筛选器初始化跳过:', e.message); }
+  try { renderWordCloud(); } catch(e) { console.warn('词云渲染跳过:', e.message); }
 
   // 重置词包生成器
   pkgResults = [];
