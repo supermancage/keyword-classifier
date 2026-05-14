@@ -137,7 +137,7 @@
     .filter-tags { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
     .filter-tag { padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--card); font-size: 12px; cursor: pointer; transition: all .1s; }
     .filter-tag:hover { border-color: var(--primary); color: var(--primary); }
-    .filter-tag.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .filter-tag.active { background: var(--primary); color: #fff !important; border-color: var(--primary) !important; }
     .filter-tag.disabled { opacity: 0.4; cursor: not-allowed; }
     .hidden { display: none !important; }
     .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
@@ -1600,7 +1600,8 @@ function exportCSV() {
   filteredResults.forEach(r => {
     const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
     const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
-    rows.push([r.kw, r.l1, r.l2, r.country, r.city, r.cost, r.impression, r.click, ctr, cpc]);
+    const kw = r.kw.replace(/[\r\n,]/g, ' ');
+    rows.push([kw, r.l1, r.l2, r.country, r.city, r.cost, r.impression, r.click, ctr, cpc]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   downloadFile('\ufeff' + csv, '关键词分类结果.csv', 'text/csv;charset=utf-8');
@@ -2655,7 +2656,7 @@ function initPkgFilters() {
   const l1Container = document.getElementById('pkg-filter-l1');
   l1Container.innerHTML = l1Set.map(l1 => {
     const meta = L1_META[l1] || { cls: '', color: '#999' };
-    return `<span class="filter-tag active" data-l1="${l1}" onclick="togglePkgFilter(this,'l1')" style="border-color:${meta.color};color:${meta.color}">${l1}</span>`;
+    return `<span class="filter-tag active" data-l1="${l1}" data-color="${meta.color}" onclick="togglePkgFilter(this,'l1')">${l1}</span>`;
   }).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('l1')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
 
   // 城市筛选
@@ -2681,14 +2682,46 @@ function initPkgFilters() {
 }
 
 function togglePkgFilter(el, type) {
+  const wasActive = el.classList.contains('active');
   el.classList.toggle('active');
+  // 业务线标签：active 时清除内联 color/border-color 让 CSS !important 生效；
+  // 非 active 时恢复业务线自身颜色
+  if (type === 'l1') {
+    const meta = L1_META[el.dataset.l1] || { color: '#999' };
+    if (wasActive) {
+      // 从 active → 非 active：恢复业务线颜色
+      el.style.borderColor = meta.color;
+      el.style.color = meta.color;
+    } else {
+      // 从非 active → active：清除内联样式让 CSS class 生效
+      el.style.borderColor = '';
+      el.style.color = '';
+    }
+  }
 }
 
 function togglePkgFilterAll(type) {
   const container = document.getElementById(type === 'l1' ? 'pkg-filter-l1' : 'pkg-filter-city');
   const tags = container.querySelectorAll('.filter-tag[data-' + type + ']');
   const allActive = [...tags].every(t => t.classList.contains('active'));
-  tags.forEach(t => t.classList.toggle('active', !allActive));
+  tags.forEach(t => {
+    if (allActive) {
+      // 全选 → 全取消
+      t.classList.remove('active');
+      if (type === 'l1') {
+        const meta = L1_META[t.dataset.l1] || { color: '#999' };
+        t.style.borderColor = meta.color;
+        t.style.color = meta.color;
+      }
+    } else {
+      // 部分选中 → 全选
+      t.classList.add('active');
+      if (type === 'l1') {
+        t.style.borderColor = '';
+        t.style.color = '';
+      }
+    }
+  });
 }
 
 function showCitySelector() {
@@ -3039,7 +3072,7 @@ function exportPackages() {
   pkgResults.forEach(pkg => {
     const avgCpc = pkg.click > 0 ? (pkg.cost / pkg.click).toFixed(2) : '-';
     const avgCtr = pkg.impression > 0 ? (pkg.click / pkg.impression * 100).toFixed(2) + '%' : '-';
-    const kwList = pkg.items.map(r => r.kw).join('|');
+    const kwList = pkg.items.map(r => r.kw.replace(/[\r\n,]/g, ' ')).join('|');
     rows.push([pkg.name, pkg.tierLabel, pkg.dimLabel, pkg.items.length, pkg.cost, pkg.impression, pkg.click, avgCpc, avgCtr, (pkg.variance * 100).toFixed(1) + '%', kwList]);
   });
 
