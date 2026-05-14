@@ -481,11 +481,17 @@
 
       <!-- 第一步：筛选范围 -->
       <div style="background:#f0f7ff;border-radius:10px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:600;color:#1a73e8;margin-bottom:10px;">① 筛选范围 <span style="font-weight:400;color:#6b7280;">— 选哪些业务线和城市参与组合</span></div>
+        <div style="font-size:13px;font-weight:600;color:#1a73e8;margin-bottom:10px;">① 筛选范围 <span style="font-weight:400;color:#6b7280;">— 选哪些业务线、意图词包和城市参与组合</span></div>
         <div style="margin-bottom:10px;">
           <span style="font-size:12px;color:#6b7280;font-weight:500;">业务线：</span>
           <div id="pkg-filter-l1" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
             <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <span style="font-size:12px;color:#6b7280;font-weight:500;">意图词包：</span>
+          <div id="pkg-filter-l2" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">
+            <span style="color:#9ca3af;font-size:12px;">（请先选择业务线）</span>
           </div>
         </div>
         <div>
@@ -2675,6 +2681,10 @@ function initPkgFilters() {
     return `<span class="filter-tag active" data-l1="${l1}" data-color="${meta.color}" onclick="togglePkgFilter(this,'l1')">${l1}</span>`;
   }).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('l1')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
 
+  // 意图词包筛选 — 初始化后由 updatePkgL2Filter 联动
+  window._pkgSelectedL2 = new Set();
+  updatePkgL2Filter();
+
   // 城市筛选 — 统一用可搜索下拉多选
   const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
   const cityContainer = document.getElementById('pkg-filter-city');
@@ -2703,10 +2713,11 @@ function initPkgFilters() {
 
   // 点击外部关闭下拉
   document.addEventListener('click', e => {
-    const wrap = document.querySelector('.city-select-wrap');
-    if (wrap && !wrap.contains(e.target)) {
-      document.getElementById('city-dropdown')?.classList.remove('open');
-    }
+    document.querySelectorAll('.city-select-wrap').forEach(wrap => {
+      if (!wrap.contains(e.target)) {
+        wrap.querySelector('.city-dropdown')?.classList.remove('open');
+      }
+    });
   });
 
   // radio 样式联动
@@ -2717,6 +2728,101 @@ function initPkgFilters() {
       });
     });
   });
+}
+
+// ── L2 意图词包联动 ──
+function getAvailableL2s() {
+  const selectedL1 = getPkgSelectedL1s();
+  return [...new Set(
+    allResults.filter(r => selectedL1.has(r.l1)).map(r => r.l2).filter(Boolean)
+  )].sort();
+}
+
+function updatePkgL2Filter() {
+  const l2Set = getAvailableL2s();
+  const container = document.getElementById('pkg-filter-l2');
+  // 全选新出现的 L2
+  window._pkgSelectedL2 = new Set(l2Set);
+  if (l2Set.length === 0) {
+    container.innerHTML = '<span style="color:#9ca3af;font-size:12px;">无匹配意图词包</span>';
+  } else {
+    container.innerHTML = `
+      <div class="city-select-wrap">
+        <div class="city-select-btn" onclick="toggleL2Dropdown()">
+          📋 选择意图词包 <span class="count" id="l2-count-badge">${l2Set.length}</span> <span style="font-size:10px;color:#9ca3af;">▼</span>
+        </div>
+        <div class="city-dropdown" id="l2-dropdown">
+          <input type="text" class="city-search" id="l2-search-input" placeholder="搜索意图词包…" oninput="filterL2List()">
+          <div class="city-actions">
+            <a onclick="l2SelectAll()">全选</a>
+            <a onclick="l2SelectNone()">全不选</a>
+            <a onclick="l2SelectInvert()">反选</a>
+          </div>
+          <div class="city-list" id="l2-list"></div>
+        </div>
+      </div>`;
+    renderL2List();
+  }
+}
+
+function toggleL2Dropdown() {
+  const dd = document.getElementById('l2-dropdown');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open')) {
+    const input = document.getElementById('l2-search-input');
+    input.value = '';
+    renderL2List();
+    setTimeout(() => input.focus(), 50);
+  }
+}
+
+function renderL2List(filter) {
+  const l2Set = getAvailableL2s();
+  const selected = window._pkgSelectedL2 || new Set(l2Set);
+  const keyword = (filter || '').toLowerCase();
+  const list = document.getElementById('l2-list');
+  const filtered = keyword ? l2Set.filter(c => c.toLowerCase().includes(keyword)) : l2Set;
+  list.innerHTML = filtered.map(c =>
+    `<label class="city-item"><input type="checkbox" ${selected.has(c) ? 'checked' : ''} onchange="toggleL2Item(this,'${c.replace(/'/g, "\\'")}')"> ${c}</label>`
+  ).join('');
+  if (filtered.length === 0) list.innerHTML = '<div style="padding:8px 12px;color:#9ca3af;font-size:12px;">无匹配意图词包</div>';
+}
+
+function filterL2List() {
+  const keyword = document.getElementById('l2-search-input').value;
+  renderL2List(keyword);
+}
+
+function toggleL2Item(cb, l2) {
+  const selected = window._pkgSelectedL2;
+  if (cb.checked) selected.add(l2); else selected.delete(l2);
+  updateL2Badge();
+}
+
+function l2SelectAll() {
+  getAvailableL2s().forEach(c => window._pkgSelectedL2.add(c));
+  renderL2List(document.getElementById('l2-search-input')?.value);
+  updateL2Badge();
+}
+
+function l2SelectNone() {
+  window._pkgSelectedL2.clear();
+  renderL2List(document.getElementById('l2-search-input')?.value);
+  updateL2Badge();
+}
+
+function l2SelectInvert() {
+  getAvailableL2s().forEach(c => {
+    if (window._pkgSelectedL2.has(c)) window._pkgSelectedL2.delete(c);
+    else window._pkgSelectedL2.add(c);
+  });
+  renderL2List(document.getElementById('l2-search-input')?.value);
+  updateL2Badge();
+}
+
+function updateL2Badge() {
+  const badge = document.getElementById('l2-count-badge');
+  if (badge) badge.textContent = window._pkgSelectedL2.size;
 }
 
 function toggleCityDropdown() {
@@ -2789,39 +2895,35 @@ function togglePkgFilter(el, type) {
   if (type === 'l1') {
     const meta = L1_META[el.dataset.l1] || { color: '#999' };
     if (wasActive) {
-      // 从 active → 非 active：恢复业务线颜色
       el.style.borderColor = meta.color;
       el.style.color = meta.color;
     } else {
-      // 从非 active → active：清除内联样式让 CSS class 生效
       el.style.borderColor = '';
       el.style.color = '';
     }
+    // L1 变化时联动 L2
+    updatePkgL2Filter();
   }
 }
 
 function togglePkgFilterAll(type) {
-  const container = document.getElementById(type === 'l1' ? 'pkg-filter-l1' : 'pkg-filter-city');
-  const tags = container.querySelectorAll('.filter-tag[data-' + type + ']');
+  const container = document.getElementById('pkg-filter-l1');
+  const tags = container.querySelectorAll('.filter-tag[data-l1]');
   const allActive = [...tags].every(t => t.classList.contains('active'));
   tags.forEach(t => {
     if (allActive) {
-      // 全选 → 全取消
       t.classList.remove('active');
-      if (type === 'l1') {
-        const meta = L1_META[t.dataset.l1] || { color: '#999' };
-        t.style.borderColor = meta.color;
-        t.style.color = meta.color;
-      }
+      const meta = L1_META[t.dataset.l1] || { color: '#999' };
+      t.style.borderColor = meta.color;
+      t.style.color = meta.color;
     } else {
-      // 部分选中 → 全选
       t.classList.add('active');
-      if (type === 'l1') {
-        t.style.borderColor = '';
-        t.style.color = '';
-      }
+      t.style.borderColor = '';
+      t.style.color = '';
     }
   });
+  // L1 变化时联动 L2
+  updatePkgL2Filter();
 }
 
 function getPkgSelectedCities() {
@@ -2831,6 +2933,10 @@ function getPkgSelectedCities() {
 function getPkgSelectedL1s() {
   const tags = document.querySelectorAll('#pkg-filter-l1 .filter-tag[data-l1].active');
   return new Set([...tags].map(t => t.dataset.l1));
+}
+
+function getPkgSelectedL2s() {
+  return window._pkgSelectedL2 || new Set();
 }
 
 // ── Jenks 自然断点法 ──
@@ -2894,6 +3000,7 @@ function generatePackages() {
   if (allResults.length === 0) { alert('请先进行关键词分类'); return; }
 
   const selectedL1 = getPkgSelectedL1s();
+  const selectedL2 = getPkgSelectedL2s();
   const selectedCities = getPkgSelectedCities();
   const dim = document.querySelector('input[name=pkg-dim]:checked').value;
   const maxPkgs = parseInt(document.getElementById('pkg-max').value) || 1000;
@@ -2904,9 +3011,10 @@ function generatePackages() {
   const dimLabel = { cost: '消耗', impression: '展示', click: '点击' }[dim];
   const dimKey = dim; // r.cost, r.impression, r.click
 
-  // ① 按业务线 + 城市筛选
+  // ① 按业务线 + 意图词包 + 城市筛选
   const filtered = allResults.filter(r => {
     if (!selectedL1.has(r.l1)) return false;
+    if (r.l2 && !selectedL2.has(r.l2)) return false;
     if (r.city && !selectedCities.has(r.city)) return false;
     return true;
   });
