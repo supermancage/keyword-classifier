@@ -585,17 +585,6 @@ const COUNTRY_NAMES_JS = Object.keys(COUNTRY_MAP_JS).sort((a,b) => b.length - a.
 const POI_ABBR_MAP = {'港迪':'香港','上迪':'上海','浦东迪':'上海'};
 const POI_ABBR_KEYS = Object.keys(POI_ABBR_MAP);
 
-// 兜底判断用的合并信号词库（预构建，避免每次分类时 concat）
-const ALL_CORE_SIGNALS = [].concat(
-  HOTEL_KEYWORDS, FLIGHT_KEYWORDS, TRAIN_KEYWORDS,
-  SCENIC_FEATURE_WORDS, HOTEL_CHAINS, AIRLINE_BRANDS,
-  TC_BRANDS, COMPETITOR_BRANDS, TRAVEL_GUIDE,
-  FESTIVAL_KEYWORDS, INTERNATIONAL_KEYWORDS,
-  STATION_KEYWORDS, FLIGHT_PRODUCTS, FLIGHT_SCENARIOS,
-  INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
-  PREMIUM_QUALITY, PRICE_SENSITIVE, URGENT_NEED, GEO_LOCATION
-);
-
 const POI_CITY_MAP_JS = {
   '731遗址':'哈尔滨','798':'北京','798艺术区':'北京','CBD':'北京','七仙岭':'保亭','七宝老街':'上海',
   '七彩丹霞':'张掖','七星岩':'肇庆','万山群岛':'珠海','万峰林':'黔西南','三亚免税城':'三亚',
@@ -973,6 +962,17 @@ const PREMIUM_QUALITY = ['五星','五星级','豪华','高端','精品','奢华
 const GEO_LOCATION = ['地铁','机场','火车站','附近','旁边','周边','步行','紧邻','毗邻','紧靠','对面','站前','商圈'];
 const URGENT_NEED = ['当日','今天','现在','钟点房','临时','今晚','马上','立刻','急','当天','即时','凌晨','半夜','深夜'];
 const TRAVEL_GUIDE = ['攻略','自由行','几日游','必去','必玩','旅游路线','行程','路线','怎么玩','好玩','避坑','打卡'];
+
+// 兜底判断用的合并信号词库（预构建，避免每次分类时 concat）
+const ALL_CORE_SIGNALS = [].concat(
+  HOTEL_KEYWORDS, FLIGHT_KEYWORDS, TRAIN_KEYWORDS,
+  SCENIC_FEATURE_WORDS, HOTEL_CHAINS, AIRLINE_BRANDS,
+  TC_BRANDS, COMPETITOR_BRANDS, TRAVEL_GUIDE,
+  FESTIVAL_KEYWORDS, INTERNATIONAL_KEYWORDS,
+  STATION_KEYWORDS, FLIGHT_PRODUCTS, FLIGHT_SCENARIOS,
+  INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
+  PREMIUM_QUALITY, PRICE_SENSITIVE, URGENT_NEED, GEO_LOCATION
+);
 
 const PRICE_COMPARE = ['比价','哪个便宜','哪家好','多少钱','最便宜','划算','折扣','最低价','最低','优惠价','特价','打折'];
 const QUERY_NAV = ['查询','时刻表','航班号','航班动态','准点率','时刻','动态','查询系统','通知','提醒','轨迹'];
