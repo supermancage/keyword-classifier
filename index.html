@@ -2490,14 +2490,11 @@ function renderWordCloud() {
   }
 }
 
-// 移除 CDN 加载指示器
-const cdnLoading = document.getElementById('cdn-loading');
-if (cdnLoading) {
-  cdnLoading.remove();
-  window.__cdnLoadingRemoved = true;
-} else {
-  window.__cdnLoadingRemoved = false;
-}
+// 移除 CDN 加载指示器（DOMContentLoaded 确保 defer 脚本全部执行完毕）
+document.addEventListener('DOMContentLoaded', function() {
+  var el = document.getElementById('cdn-loading');
+  if (el) el.remove();
+});
 
 </script>
 </body>
