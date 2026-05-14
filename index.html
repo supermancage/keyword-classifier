@@ -526,8 +526,8 @@
         <div style="font-size:13px;font-weight:600;color:#065f46;margin-bottom:10px;">③ 参数设置</div>
         <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-            <span style="color:#6b7280;">词包总量上限：</span>
-            <input type="number" id="pkg-max" value="1000" min="10" max="5000" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+            <span style="color:#6b7280;">关键词数量上限：</span>
+            <input type="number" id="pkg-max" value="1000" min="10" max="50000" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
             <span style="color:#6b7280;">最小词包关键词数：</span>
@@ -3003,7 +3003,7 @@ function generatePackages() {
   const selectedL2 = getPkgSelectedL2s();
   const selectedCities = getPkgSelectedCities();
   const dim = document.querySelector('input[name=pkg-dim]:checked').value;
-  const maxPkgs = parseInt(document.getElementById('pkg-max').value) || 1000;
+  const maxKw = parseInt(document.getElementById('pkg-max').value) || 1000;
   const minSize = parseInt(document.getElementById('pkg-min-size').value) || 3;
   const maxTiers = parseInt(document.getElementById('pkg-max-tiers').value) || 3;
 
@@ -3012,7 +3012,7 @@ function generatePackages() {
   const dimKey = dim; // r.cost, r.impression, r.click
 
   // ① 按业务线 + 意图词包 + 城市筛选
-  const filtered = allResults.filter(r => {
+  let filtered = allResults.filter(r => {
     if (!selectedL1.has(r.l1)) return false;
     if (r.l2 && !selectedL2.has(r.l2)) return false;
     if (r.city && !selectedCities.has(r.city)) return false;
@@ -3020,6 +3020,12 @@ function generatePackages() {
   });
 
   if (filtered.length === 0) { alert('筛选后无关键词，请调整筛选条件'); return; }
+
+  // ①.5 关键词数量上限：超过时按维度值从高到低截取
+  if (filtered.length > maxKw) {
+    filtered.sort((a, b) => (b[dimKey] || 0) - (a[dimKey] || 0));
+    filtered = filtered.slice(0, maxKw);
+  }
 
   // ② 按 业务线 > 意图词包 分组
   const groups = {};
@@ -3083,34 +3089,7 @@ function generatePackages() {
     }
   });
 
-  // ④ 如果词包数超上限，合并最小的词包
-  if (packages.length > maxPkgs) {
-    packages.sort((a, b) => a.items.length - b.items.length);
-    while (packages.length > maxPkgs) {
-      const smallest = packages.shift();
-      // 合并到同 L1 下关键词数最少的包
-      const target = packages
-        .filter(p => p.items[0] && p.items[0].l1 === smallest.items[0].l1)
-        .sort((a, b) => a.items.length - b.items.length)[0];
-      if (target) {
-        target.items.push(...smallest.items);
-        target.cost += smallest.cost;
-        target.impression += smallest.impression;
-        target.click += smallest.click;
-        target.tierLabel = '合并';
-        target.variance = calcVariance(target.items, dimKey);
-        // 更新名称
-        if (!target.name.includes('合并')) {
-          target.name = smallest.items[0].l1 + ' > 合并词包';
-        }
-      } else {
-        packages.push(smallest);
-        break;
-      }
-    }
-  }
-
-  // 按关键词数降序
+  // ④ 按关键词数降序
   packages.sort((a, b) => b.items.length - a.items.length);
 
   pkgResults = packages;
@@ -3131,7 +3110,8 @@ function generatePackages() {
   document.getElementById('pkg-stat-optimality').textContent = uniformity + '%';
 
   document.getElementById('pkg-table-wrap').classList.remove('hidden');
-  document.getElementById('pkg-hint').textContent = `已生成 ${pkgResults.length} 个词包（${dimLabel}维度）`;
+  const filteredNote = filtered.length < allResults.length ? `（筛选后 ${filtered.length} 条）` : '';
+  document.getElementById('pkg-hint').textContent = `已生成 ${pkgResults.length} 个词包（${dimLabel}维度），共 ${totalKw} 条关键词${filteredNote}`;
   document.getElementById('pkg-search').value = '';
   renderPkgTable(1);
 }
