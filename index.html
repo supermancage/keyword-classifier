@@ -2685,31 +2685,9 @@ function initPkgFilters() {
   window._pkgSelectedL2 = new Set();
   updatePkgL2Filter();
 
-  // 城市筛选 — 统一用可搜索下拉多选
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
-  const cityContainer = document.getElementById('pkg-filter-city');
-  if (citySet.length === 0) {
-    cityContainer.innerHTML = '<span style="color:#9ca3af;font-size:12px;">无城市数据（需上传含城市信息的文件）</span>';
-    window._pkgSelectedCities = new Set();
-  } else {
-    window._pkgSelectedCities = new Set(citySet); // 默认全选
-    cityContainer.innerHTML = `
-      <div class="city-select-wrap">
-        <div class="city-select-btn" onclick="toggleCityDropdown()">
-          🏙 选择城市 <span class="count" id="city-count-badge">${citySet.length}</span> <span style="font-size:10px;color:#9ca3af;">▼</span>
-        </div>
-        <div class="city-dropdown" id="city-dropdown">
-          <input type="text" class="city-search" id="city-search-input" placeholder="搜索城市…" oninput="filterCityList()">
-          <div class="city-actions">
-            <a onclick="citySelectAll()">全选</a>
-            <a onclick="citySelectNone()">全不选</a>
-            <a onclick="citySelectInvert()">反选</a>
-          </div>
-          <div class="city-list" id="city-list"></div>
-        </div>
-      </div>`;
-    renderCityList();
-  }
+  // 城市筛选 — 统一用可搜索下拉多选（由 updatePkgCityFilter 联动）
+  window._pkgSelectedCities = new Set();
+  updatePkgCityFilter();
 
   // 点击外部关闭下拉
   document.addEventListener('click', e => {
@@ -2825,6 +2803,41 @@ function updateL2Badge() {
   if (badge) badge.textContent = window._pkgSelectedL2.size;
 }
 
+// ── 城市联动 ──
+function getAvailableCities() {
+  const selectedL1 = getPkgSelectedL1s();
+  return [...new Set(
+    allResults.filter(r => selectedL1.has(r.l1)).map(r => r.city).filter(Boolean)
+  )].sort();
+}
+
+function updatePkgCityFilter() {
+  const citySet = getAvailableCities();
+  const container = document.getElementById('pkg-filter-city');
+  // 全选新出现的城市
+  window._pkgSelectedCities = new Set(citySet);
+  if (citySet.length === 0) {
+    container.innerHTML = '<span style="color:#9ca3af;font-size:12px;">无匹配城市</span>';
+  } else {
+    container.innerHTML = `
+      <div class="city-select-wrap">
+        <div class="city-select-btn" onclick="toggleCityDropdown()">
+          🏙 选择城市 <span class="count" id="city-count-badge">${citySet.length}</span> <span style="font-size:10px;color:#9ca3af;">▼</span>
+        </div>
+        <div class="city-dropdown" id="city-dropdown">
+          <input type="text" class="city-search" id="city-search-input" placeholder="搜索城市…" oninput="filterCityList()">
+          <div class="city-actions">
+            <a onclick="citySelectAll()">全选</a>
+            <a onclick="citySelectNone()">全不选</a>
+            <a onclick="citySelectInvert()">反选</a>
+          </div>
+          <div class="city-list" id="city-list"></div>
+        </div>
+      </div>`;
+    renderCityList();
+  }
+}
+
 function toggleCityDropdown() {
   const dd = document.getElementById('city-dropdown');
   dd.classList.toggle('open');
@@ -2837,7 +2850,7 @@ function toggleCityDropdown() {
 }
 
 function renderCityList(filter) {
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  const citySet = getAvailableCities();
   const selected = window._pkgSelectedCities || new Set(citySet);
   const keyword = (filter || '').toLowerCase();
   const list = document.getElementById('city-list');
@@ -2860,8 +2873,7 @@ function toggleCityItem(cb, city) {
 }
 
 function citySelectAll() {
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))];
-  citySet.forEach(c => window._pkgSelectedCities.add(c));
+  getAvailableCities().forEach(c => window._pkgSelectedCities.add(c));
   renderCityList(document.getElementById('city-search-input')?.value);
   updateCityBadge();
 }
@@ -2873,8 +2885,7 @@ function citySelectNone() {
 }
 
 function citySelectInvert() {
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))];
-  citySet.forEach(c => {
+  getAvailableCities().forEach(c => {
     if (window._pkgSelectedCities.has(c)) window._pkgSelectedCities.delete(c);
     else window._pkgSelectedCities.add(c);
   });
@@ -2901,8 +2912,9 @@ function togglePkgFilter(el, type) {
       el.style.borderColor = '';
       el.style.color = '';
     }
-    // L1 变化时联动 L2
+    // L1 变化时联动 L2 和城市
     updatePkgL2Filter();
+    updatePkgCityFilter();
   }
 }
 
@@ -2922,8 +2934,9 @@ function togglePkgFilterAll(type) {
       t.style.color = '';
     }
   });
-  // L1 变化时联动 L2
+  // L1 变化时联动 L2 和城市
   updatePkgL2Filter();
+  updatePkgCityFilter();
 }
 
 function getPkgSelectedCities() {
@@ -3012,10 +3025,14 @@ function generatePackages() {
   const dimKey = dim; // r.cost, r.impression, r.click
 
   // ① 按业务线 + 意图词包 + 城市筛选
+  const hasCityFilter = selectedCities.size > 0 && selectedCities.size < new Set(allResults.map(r => r.city).filter(Boolean)).size;
   let filtered = allResults.filter(r => {
     if (!selectedL1.has(r.l1)) return false;
     if (r.l2 && !selectedL2.has(r.l2)) return false;
-    if (r.city && !selectedCities.has(r.city)) return false;
+    // 城市筛选：如果用户做了城市选择（非全选），则只保留已选城市的关键词
+    if (hasCityFilter) {
+      if (!r.city || !selectedCities.has(r.city)) return false;
+    }
     return true;
   });
 
@@ -3027,11 +3044,12 @@ function generatePackages() {
     filtered = filtered.slice(0, maxKw);
   }
 
-  // ② 按 业务线 > 意图词包 分组
+  // ② 按 业务线 > 意图词包 > 城市 分组
   const groups = {};
   filtered.forEach(r => {
-    const key = (r.l1 || '未分类') + '>' + (r.l2 || '通用词');
-    if (!groups[key]) groups[key] = { l1: r.l1, l2: r.l2, items: [] };
+    const cityLabel = r.city || '未指定城市';
+    const key = (r.l1 || '未分类') + '>' + (r.l2 || '通用词') + '>' + cityLabel;
+    if (!groups[key]) groups[key] = { l1: r.l1, l2: r.l2, city: cityLabel, items: [] };
     groups[key].items.push(r);
   });
 
@@ -3054,7 +3072,7 @@ function generatePackages() {
 
     if (tiers <= 1) {
       // 不分档，整包输出
-      const pkg = buildPackage(group.l1 + ' > ' + group.l2, items, '不分档', dimLabel);
+      const pkg = buildPackage(group.l1 + ' > ' + group.l2 + ' > ' + group.city, items, '不分档', dimLabel);
       packages.push(pkg);
       totalVariance += pkg.variance;
       totalItems += items.length;
@@ -3079,7 +3097,7 @@ function generatePackages() {
       tierItems.forEach((tierGroup, t) => {
         if (tierGroup.length === 0) return;
         const label = tierNames[Math.round(t * (tierNames.length - 1) / Math.max(1, tiers - 1))];
-        const name = group.l1 + ' > ' + group.l2 + ' > ' + label + dimLabel;
+        const name = group.l1 + ' > ' + group.l2 + ' > ' + group.city + ' > ' + label + dimLabel;
         const pkg = buildPackage(name, tierGroup, label, dimLabel);
         pkg.tierClass = tierClasses[Math.round(t * (tierClasses.length - 1) / Math.max(1, tiers - 1))];
         packages.push(pkg);
