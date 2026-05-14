@@ -8,11 +8,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js" defer></script>
   <style>
-    /* 内联首屏样式：CDN未加载时也能显示loading */
-    @keyframes inline-spin { to { transform: rotate(360deg); } }
-    #cdn-loading { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    #cdn-loading .ring { width: 44px; height: 44px; border: 3px solid #e5e7eb; border-top-color: #1a73e8; border-radius: 50%; animation: inline-spin .8s linear infinite; }
-    #cdn-loading p { color: #6b7280; font-size: 14px; }
     :root {
       --bg: #f7f8fc;
       --card: #ffffff;
@@ -150,8 +145,6 @@
   </style>
 </head>
 <body>
-<!-- CDN 加载指示器：脚本加载完成后自动隐藏 -->
-<div id="cdn-loading"><div class="ring"></div><p>资源加载中…</p></div>
 <div class="container">
 
   <!-- Header -->
@@ -455,7 +448,6 @@
 </div>
 
 <script>
-console.log('[智词引擎] 内联脚本开始执行');
 // ═══════════════════════════════════════════════════
 // 关键词库（与 classify.py v4.1 保持一致）
 // ═══════════════════════════════════════════════════
@@ -2490,15 +2482,6 @@ function renderWordCloud() {
     console.warn('词云渲染异常:', e);
   }
 }
-
-// 移除 CDN 加载指示器（兼容 readyState 各种状态）
-(function removeCdnLoading() {
-  var el = document.getElementById('cdn-loading');
-  if (el) el.remove();
-  console.log('[智词引擎] 页面初始化完成');
-})();
-
-console.log('[智词引擎] 内联脚本执行完毕');
 
 </script>
 </body>
