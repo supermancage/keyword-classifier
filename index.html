@@ -2492,7 +2492,12 @@ function renderWordCloud() {
 
 // 移除 CDN 加载指示器
 const cdnLoading = document.getElementById('cdn-loading');
-if (cdnLoading) cdnLoading.remove();
+if (cdnLoading) {
+  cdnLoading.remove();
+  window.__cdnLoadingRemoved = true;
+} else {
+  window.__cdnLoadingRemoved = false;
+}
 
 </script>
 </body>
