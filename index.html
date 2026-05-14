@@ -650,11 +650,49 @@ const INTERNATIONAL_KEYWORDS = ['境外','国外','海外','国际','出境','�
 const CITIES = ['北京','上海','广州','深圳','成都','重庆','杭州','武汉','西安','南京','长沙','苏州','天津','郑州','青岛','大连','沈阳','哈尔滨','长春','济南','昆明','贵阳','南宁','海口','三亚','厦门','福州','泉州','南昌','合肥','太原','石家庄','兰州','银川','西宁','呼和浩特','乌鲁木齐','拉萨','无锡','宁波','温州','佛山','东莞','珠海','中山','惠州','扬州','徐州','常州','绍兴','嘉兴','金华','台州','洛阳','开封','安阳','许昌','南阳','桂林','柳州','北海','梧州','大理','丽江','香格里拉','西双版纳','腾冲','曲靖','玉溪','张家界','凤凰','岳阳','衡阳','九江','景德镇','婺源','赣州','上饶','吉安','烟台','威海','日照','泰安','曲阜','承德','秦皇岛','唐山','保定','邯郸','襄阳','宜昌','恩施','十堰','遵义','安顺','凯里','铜仁','宜宾','泸州','乐山','绵阳','德阳','南充','达州','汕头','潮州','湛江','河源','清远','韶关','梅州','肇庆','阳江','茂名','丽水','衢州','舟山','湖州','连云港','盐城','淮安','宿迁','泰州','南通','镇江','安吉','莫干山','千岛湖','普陀山','九华山','五台山','李庄','阆中','平遥','博鳌','文昌','万宁','康定','甘孜','阿坝','攀枝花','湘潭','株洲','常德','益阳','郴州','邵阳','南平','龙岩','三明','漳州','莆田','延吉','吉林','芜湖','蚌埠','马鞍山','黄山','淄博','潍坊','临沂','聊城','德州','滨州','汕尾','揭阳','白银','天水','酒泉','嘉峪关','张掖','长治','大同','运城','晋中','临汾','菏泽','海南','云南','贵州','四川','湖南','湖北','江西','安徽','浙江','江苏','福建','广东','广西','山东','河南','河北','山西','陕西','甘肃','辽宁','吉林','黑龙江','内蒙古','新疆','西藏','青海','宁夏','川西','甘南','黔东南','湘西','闽南','粤东','胶东','辽东','信阳','汉中','渭南','楚雄','红河','文山','临沧','普洱','德宏','怒江','包头','鄂尔多斯','涠洲岛','六安'];
 
 // ═══════════════════════════════════════════════════
+// 性能优化：预编译正则引擎（工具函数）
+// ═══════════════════════════════════════════════════
+
+// 转义正则特殊字符
+function _escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// 预编译正则缓存（Key: 数组引用, Value: RegExp）
+const _reCache = new Map();
+
+// 为词组构建预编译正则（按长度降序排列，确保长词优先匹配）
+function _buildRe(group) {
+  if (_reCache.has(group)) return _reCache.get(group);
+  const sorted = [...group].sort((a, b) => b.length - a.length);
+  const re = new RegExp(sorted.map(_escRe).join('|'));
+  _reCache.set(group, re);
+  return re;
+}
+
+// 构建 matchAll 用全局正则（带 g 标志）
+function _buildReG(group) {
+  const key = group + '__g';
+  if (_reCache.has(key)) return _reCache.get(key);
+  const sorted = [...group].sort((a, b) => b.length - a.length);
+  const re = new RegExp(sorted.map(_escRe).join('|'), 'g');
+  _reCache.set(key, re);
+  return re;
+}
+
+// 预构建 Set 用于 O(1) 精确查找（提前创建，后续可直接用）
+// 注意：INTL_GENERIC_WORDS 在词库定义区已声明，此处仅用 Set 包装
+
+// ═══════════════════════════════════════════════════
 // 分类函数
 // ═══════════════════════════════════════════════════
 
 function hasAny(kw, group) {
-  return group.some(w => kw.includes(w));
+  // 预编译正则路径：O(kw长度) 代替 O(group长度 × kw长度)
+  const re = _reCache.get(group);
+  if (re) return re.test(kw);
+  // 小词组（<8词）直接遍历，避免正则编译开销
+  if (group.length < 8) return group.some(w => kw.includes(w));
+  // 未预编译的词组：构建并缓存
+  return _buildRe(group).test(kw);
 }
 
 function isInternational(kw) {
@@ -664,12 +702,17 @@ function isInternational(kw) {
     if (!hasAny(kw, intlIntent)) return false;
   }
   // POI 缩写映射到国际城市（如"港迪"→香港）
-  const poiIntl = POI_ABBR_KEYS.some(p => kw.includes(p) && INTERNATIONAL_KEYWORDS.includes(POI_ABBR_MAP[p]));
-  return hasAny(kw, INTERNATIONAL_KEYWORDS) || hasAny(kw, INTL_CITIES_JS) || poiIntl;
+  const reIntl = _reCache.get(INTERNATIONAL_KEYWORDS);
+  const rePoi = _reCache.get(POI_ABBR_KEYS);
+  const poiIntl = rePoi.test(kw) && (() => {
+    const m = kw.match(rePoi);
+    return m && INTERNATIONAL_KEYWORDS.includes(POI_ABBR_MAP[m[0]]);
+  })();
+  return reIntl.test(kw) || hasAny(kw, INTL_CITIES_JS) || poiIntl;
 }
 
 function hasCity(kw) {
-  return CITIES.some(c => kw.includes(c));
+  return hasAny(kw, CITIES);
 }
 
 // 泛意图词（非地名），不应被识别为"包含国际城市/地名"
@@ -677,11 +720,20 @@ const INTL_GENERIC_WORDS = ['境外','国外','海外','国际','出境','出国
 
 function hasIntlCity(kw) {
   // 只匹配真实地名：过滤掉泛意图词，避免"出国机票""国外买机票"误归目的地词
-  const hasRealGeoWord = INTERNATIONAL_KEYWORDS
-    .filter(w => w.length >= 2 && !INTL_GENERIC_WORDS.includes(w))
-    .some(w => kw.includes(w));
+  // 用预编译正则替代 filter+some 链式遍历
+  const reIntl = _reCache.get(INTERNATIONAL_KEYWORDS);
+  const hasRealGeoWord = (() => {
+    const reG = _buildReG(INTERNATIONAL_KEYWORDS);
+    reG.lastIndex = 0;
+    let m;
+    while ((m = reG.exec(kw)) !== null) {
+      const w = m[0];
+      if (w.length >= 2 && !INTL_GENERIC_WORDS_SET.has(w)) return true;
+    }
+    return false;
+  })();
   // POI 缩写映射（如"港迪"→香港）
-  const hasPoiGeoWord = POI_ABBR_KEYS.some(p => kw.includes(p));
+  const hasPoiGeoWord = hasAny(kw, POI_ABBR_KEYS);
   return hasRealGeoWord || hasAny(kw, INTL_CITIES_JS) || hasPoiGeoWord;
 }
 
@@ -890,52 +942,61 @@ const POI_CITY_MAP_JS = {
   '鼓浪屿':'厦门','龙嘉机场':'长春','龙塔':'哈尔滨','龙脊梯田':'桂林','龙虎山':'鹰潭',
 };
 
+// 通用：在 kw 中用预编译正则查找第一个映射命中
+function _firstMatch(kw, reG, map) {
+  reG.lastIndex = 0;
+  const m = kw.match(reG);
+  return m && map[m[0]] ? m[0] : null;
+}
+
 function extractCountry(kw, l1) {
   if (['国内酒店','国内机票','火车票'].includes(l1)) return '中国';
   // POI 缩写映射（如"港迪"→香港→中国）
-  for (const p of POI_ABBR_KEYS) {
-    if (kw.includes(p)) {
-      const mappedCity = POI_ABBR_MAP[p];
-      if (COUNTRY_MAP_JS[mappedCity]) return COUNTRY_MAP_JS[mappedCity];
-      if (INTL_CITY_COUNTRY_JS[mappedCity]) return INTL_CITY_COUNTRY_JS[mappedCity];
-    }
+  const poiCity = _firstMatch(kw, _rePoiAbbrG, POI_ABBR_MAP);
+  if (poiCity) {
+    if (COUNTRY_MAP_JS[poiCity]) return COUNTRY_MAP_JS[poiCity];
+    if (INTL_CITY_COUNTRY_JS[poiCity]) return INTL_CITY_COUNTRY_JS[poiCity];
   }
-  if (l1 === '景区') {
-    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return INTL_CITY_COUNTRY_JS[c]; }
-    for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return COUNTRY_MAP_JS[n]; }
-    return '中国';
-  }
-  for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return INTL_CITY_COUNTRY_JS[c]; }
-  for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return COUNTRY_MAP_JS[n]; }
+  // 国际城市 → 国家
+  const intlCity = _firstMatch(kw, _reIntlCitiesG, INTL_CITY_COUNTRY_JS);
+  if (intlCity && INTL_CITY_COUNTRY_JS[intlCity]) return INTL_CITY_COUNTRY_JS[intlCity];
+  // 国家名直接匹配
+  const countryName = _firstMatch(kw, _reCountryNamesG, COUNTRY_MAP_JS);
+  if (countryName) return COUNTRY_MAP_JS[countryName];
+  // 景区兜底
+  if (l1 === '景区') return '中国';
   return '';
 }
 
 function extractCity(kw, l1) {
   // 先通过 POI 缩写映射查找城市（如"港迪"→香港）
-  for (const p of POI_ABBR_KEYS) {
-    if (kw.includes(p)) {
-      const mappedCity = POI_ABBR_MAP[p];
-      if (mappedCity) return mappedCity;
-    }
-  }
+  const poiCity = _firstMatch(kw, _rePoiAbbrG, POI_ABBR_MAP);
+  if (poiCity) return poiCity;
+
   if (['国际酒店','国际机票'].includes(l1)) {
-    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return c; }
-    for (const n of COUNTRY_NAMES_JS) { if (kw.includes(n)) return n; }
+    const intlCity = _firstMatch(kw, _reIntlCitiesG, INTL_CITY_COUNTRY_JS);
+    if (intlCity) return intlCity;
+    const countryName = _firstMatch(kw, _reCountryNamesG, COUNTRY_MAP_JS);
+    if (countryName) return countryName;
     return '';
   }
   if (l1 === '景区') {
-    for (const c of INTL_CITIES_JS) { if (kw.includes(c) && INTL_CITY_COUNTRY_JS[c]) return c; }
-    for (const c of CITIES) { if (kw.includes(c)) return c; }
+    const intlCity = _firstMatch(kw, _reIntlCitiesG, INTL_CITY_COUNTRY_JS);
+    if (intlCity) return intlCity;
+    const city = _firstMatch(kw, _reCitiesG, CITIES.reduce((m, c) => { m[c] = c; return m; }, {}));
+    if (city) return city;
     return '';
   }
   // 国内酒店/机票/火车票：双城市取目的地（出现位置靠后的）
   const found = [];
-  for (const c of CITIES) {
-    const idx = kw.indexOf(c);
-    if (idx >= 0) found.push({ idx, city: c });
+  _reCitiesG.lastIndex = 0;
+  for (const m of kw.matchAll(_reCitiesG)) {
+    found.push({ idx: m.index, city: m[0] });
   }
-  found.sort((a, b) => a.idx - b.idx);  // 按位置排序
-  if (found.length >= 2) return found[found.length - 1].city;  // 目的地
+  if (found.length >= 2) {
+    found.sort((a, b) => a.idx - b.idx);
+    return found[found.length - 1].city;  // 目的地
+  }
   if (found.length === 1) return found[0].city;
   
   return '';
@@ -1149,6 +1210,66 @@ const SCENIC_REVIEW = ['好玩吗','值得去吗','避坑','怎么样','坑','�
 const TRAIN_GRAB = ['抢票','候补','捡漏','加速','抢票软件','抢票攻略','候补成功','候补概率'];
 const TRAIN_COMMUTE = ['通勤','上班','月票','定期','计次','往返票','常旅客','通勤票','通勤卡'];
 const TRAIN_TRAVEL = ['旅游','攻略','景点','玩','游玩'];
+
+// ═══════════════════════════════════════════════════
+// 性能优化：预编译所有词组正则（必须在所有词库定义之后）
+// ═══════════════════════════════════════════════════
+
+// 批量预编译：一次编译，后续 O(kw长度) 查找
+[
+  TC_BRANDS, COMPETITOR_BRANDS, HOTEL_CHAINS, AIRLINE_BRANDS,
+  FLIGHT_PRODUCTS, FLIGHT_SCENARIOS, STATION_KEYWORDS, HOTEL_KEYWORDS,
+  FLIGHT_KEYWORDS, FLIGHT_BUSINESS_TERMS, TRAIN_KEYWORDS, SCENIC_FEATURE_WORDS,
+  FESTIVAL_KEYWORDS, HOTEL_INTENT_IN_TRAIN, INTL_SCENE_WORDS,
+  INTL_SCENIC_WORDS, DESTINATION_NAMES, GENERIC_TRAVEL_INTENT,
+  INTERNATIONAL_KEYWORDS, INTL_CITIES_JS, CITIES,
+  PRICE_SENSITIVE, PREMIUM_QUALITY, GEO_LOCATION, URGENT_NEED, TRAVEL_GUIDE,
+  ALL_CORE_SIGNALS, PRICE_COMPARE, QUERY_NAV, URGENT_FLIGHT, CROWD_FLIGHT,
+  TRIP_CROWD, TRIP_MODE, SCENIC_THEME_PARK, SCENIC_NATURE, SCENIC_CULTURE,
+  SCENIC_TICKET, SCENIC_REVIEW, TRAIN_GRAB, TRAIN_COMMUTE, TRAIN_TRAVEL,
+  POI_ABBR_KEYS, COUNTRY_NAMES_JS
+].forEach(g => { _buildRe(g); _buildReG(g); });
+
+// 预构建 Set 用于 O(1) 精确查找
+const INTL_GENERIC_WORDS_SET = new Set(INTL_GENERIC_WORDS);
+
+// 预编译 extractCity/extractCountry 用的全局正则
+const _reIntlCitiesG = _buildReG(INTL_CITIES_JS);
+const _reCountryNamesG = _buildReG(COUNTRY_NAMES_JS);
+const _reCitiesG = _buildReG(CITIES);
+const _rePoiAbbrG = _buildReG(POI_ABBR_KEYS);
+
+// ═══════════════════════════════════════════════════
+// 性能基准测试（控制台输入 runBenchmark() 执行）
+// ═══════════════════════════════════════════════════
+
+function runBenchmark() {
+  const testKws = [
+    '北京酒店','三亚民宿','上海迪士尼酒店','东京机票','普吉岛度假村',
+    '广州到北京机票','高铁抢票','九寨沟门票','曼谷酒店','港迪亲子游',
+    '成都到重庆火车票','马尔代夫自由行','张家界民宿','长隆欢乐世界门票',
+    '西安钟楼附近酒店','首尔免税店购物','丽江古城客栈','黄山风景区门票',
+    '巴厘岛蜜月旅行','深圳机场附近住宿','乌鲁木齐到成都机票','鼓浪屿门票',
+    '西湖周边酒店','迪士尼亲子房','香格里拉酒店','维也纳国际酒店',
+    '峨眉山金顶','西安回民街美食','北京环球影城','青岛海边民宿',
+    '西双版纳度假酒店','三亚湾海景房','大连到上海机票','桂林阳朔西街',
+    '如家商旅酒店','长白山天池','大理洱海边民宿','武汉到广州高铁',
+    '澳门塔门票','澳门巴黎人酒店','厦门鼓浪屿民宿','重庆洪崖洞',
+  ];
+  const N = 1000;  // 每个关键词重复1000次
+  const batch = [];
+  for (let i = 0; i < N; i++) batch.push(...testKws);
+  console.log(`📊 基准测试：${batch.length} 条关键词 × classify()`);
+  
+  const t0 = performance.now();
+  for (const kw of batch) classify(kw);
+  const t1 = performance.now();
+  const totalMs = (t1 - t0).toFixed(1);
+  const perKw = ((t1 - t0) / batch.length * 1000).toFixed(2);
+  console.log(`✅ 完成：${batch.length} 条耗时 ${totalMs}ms，平均 ${perKw}μs/条`);
+  console.log(`📈 吞吐量：${(batch.length / (t1 - t0) * 1000).toFixed(0)} 条/秒`);
+  return { total: totalMs + 'ms', perKw: perKw + 'μs', throughput: (batch.length / (t1 - t0) * 1000).toFixed(0) + ' 条/秒' };
+}
 
 // ═══════════════════════════════════════════════════
 // UI & 渲染
