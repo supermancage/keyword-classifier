@@ -139,6 +139,22 @@
     .filter-tag:hover { border-color: var(--primary); color: var(--primary); }
     .filter-tag.active { background: var(--primary); color: #fff !important; border-color: var(--primary) !important; }
     .filter-tag.disabled { opacity: 0.4; cursor: not-allowed; }
+    /* 城市搜索多选 */
+    .city-select-wrap { position: relative; display: inline-block; }
+    .city-select-btn { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); font-size: 13px; cursor: pointer; transition: all .15s; }
+    .city-select-btn:hover { border-color: var(--primary); }
+    .city-select-btn .count { background: var(--primary); color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 600; }
+    .city-dropdown { position: absolute; top: calc(100% + 4px); left: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 100; min-width: 280px; max-height: 320px; display: none; }
+    .city-dropdown.open { display: block; }
+    .city-dropdown .city-search { display: block; width: calc(100% - 16px); margin: 8px; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; outline: none; }
+    .city-dropdown .city-search:focus { border-color: var(--primary); }
+    .city-dropdown .city-actions { display: flex; gap: 8px; padding: 0 12px 6px; font-size: 12px; }
+    .city-dropdown .city-actions a { color: var(--primary); cursor: pointer; text-decoration: none; }
+    .city-dropdown .city-actions a:hover { text-decoration: underline; }
+    .city-dropdown .city-list { max-height: 220px; overflow-y: auto; padding: 0 8px 8px; }
+    .city-dropdown .city-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 13px; border-radius: 4px; cursor: pointer; }
+    .city-dropdown .city-item:hover { background: #f3f4f6; }
+    .city-dropdown .city-item input { accent-color: var(--primary); }
     .hidden { display: none !important; }
     .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
     .mb-4 { margin-bottom: 20px; }
@@ -474,7 +490,7 @@
         </div>
         <div>
           <span style="font-size:12px;color:#6b7280;font-weight:500;">城市：</span>
-          <div id="pkg-filter-city" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+          <div id="pkg-filter-city" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">
             <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
           </div>
         </div>
@@ -2659,17 +2675,39 @@ function initPkgFilters() {
     return `<span class="filter-tag active" data-l1="${l1}" data-color="${meta.color}" onclick="togglePkgFilter(this,'l1')">${l1}</span>`;
   }).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('l1')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
 
-  // 城市筛选
+  // 城市筛选 — 统一用可搜索下拉多选
   const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
   const cityContainer = document.getElementById('pkg-filter-city');
   if (citySet.length === 0) {
     cityContainer.innerHTML = '<span style="color:#9ca3af;font-size:12px;">无城市数据（需上传含城市信息的文件）</span>';
-  } else if (citySet.length <= 15) {
-    cityContainer.innerHTML = citySet.map(c => `<span class="filter-tag active" data-city="${c}" onclick="togglePkgFilter(this,'city')">${c}</span>`).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('city')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
+    window._pkgSelectedCities = new Set();
   } else {
-    // 城市太多时用下拉多选
-    cityContainer.innerHTML = `<span style="font-size:12px;color:#6b7280;">${citySet.length} 个城市，</span><a href="javascript:void(0)" onclick="showCitySelector()" style="font-size:12px;color:var(--primary);">选择城市…</a><span id="pkg-city-summary" style="font-size:12px;color:#10b981;margin-left:6px;">已选 ${citySet.length} 个</span>`;
+    window._pkgSelectedCities = new Set(citySet); // 默认全选
+    cityContainer.innerHTML = `
+      <div class="city-select-wrap">
+        <div class="city-select-btn" onclick="toggleCityDropdown()">
+          🏙 选择城市 <span class="count" id="city-count-badge">${citySet.length}</span> <span style="font-size:10px;color:#9ca3af;">▼</span>
+        </div>
+        <div class="city-dropdown" id="city-dropdown">
+          <input type="text" class="city-search" id="city-search-input" placeholder="搜索城市…" oninput="filterCityList()">
+          <div class="city-actions">
+            <a onclick="citySelectAll()">全选</a>
+            <a onclick="citySelectNone()">全不选</a>
+            <a onclick="citySelectInvert()">反选</a>
+          </div>
+          <div class="city-list" id="city-list"></div>
+        </div>
+      </div>`;
+    renderCityList();
   }
+
+  // 点击外部关闭下拉
+  document.addEventListener('click', e => {
+    const wrap = document.querySelector('.city-select-wrap');
+    if (wrap && !wrap.contains(e.target)) {
+      document.getElementById('city-dropdown')?.classList.remove('open');
+    }
+  });
 
   // radio 样式联动
   document.querySelectorAll('input[name=pkg-dim]').forEach(radio => {
@@ -2679,6 +2717,68 @@ function initPkgFilters() {
       });
     });
   });
+}
+
+function toggleCityDropdown() {
+  const dd = document.getElementById('city-dropdown');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open')) {
+    const input = document.getElementById('city-search-input');
+    input.value = '';
+    renderCityList();
+    setTimeout(() => input.focus(), 50);
+  }
+}
+
+function renderCityList(filter) {
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  const selected = window._pkgSelectedCities || new Set(citySet);
+  const keyword = (filter || '').toLowerCase();
+  const list = document.getElementById('city-list');
+  const filtered = keyword ? citySet.filter(c => c.toLowerCase().includes(keyword)) : citySet;
+  list.innerHTML = filtered.map(c =>
+    `<label class="city-item"><input type="checkbox" ${selected.has(c) ? 'checked' : ''} onchange="toggleCityItem(this,'${c.replace(/'/g, "\\'")}')"> ${c}</label>`
+  ).join('');
+  if (filtered.length === 0) list.innerHTML = '<div style="padding:8px 12px;color:#9ca3af;font-size:12px;">无匹配城市</div>';
+}
+
+function filterCityList() {
+  const keyword = document.getElementById('city-search-input').value;
+  renderCityList(keyword);
+}
+
+function toggleCityItem(cb, city) {
+  const selected = window._pkgSelectedCities;
+  if (cb.checked) selected.add(city); else selected.delete(city);
+  updateCityBadge();
+}
+
+function citySelectAll() {
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))];
+  citySet.forEach(c => window._pkgSelectedCities.add(c));
+  renderCityList(document.getElementById('city-search-input')?.value);
+  updateCityBadge();
+}
+
+function citySelectNone() {
+  window._pkgSelectedCities.clear();
+  renderCityList(document.getElementById('city-search-input')?.value);
+  updateCityBadge();
+}
+
+function citySelectInvert() {
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))];
+  citySet.forEach(c => {
+    if (window._pkgSelectedCities.has(c)) window._pkgSelectedCities.delete(c);
+    else window._pkgSelectedCities.add(c);
+  });
+  renderCityList(document.getElementById('city-search-input')?.value);
+  updateCityBadge();
+}
+
+function updateCityBadge() {
+  const badge = document.getElementById('city-count-badge');
+  if (badge) badge.textContent = window._pkgSelectedCities.size;
 }
 
 function togglePkgFilter(el, type) {
@@ -2724,40 +2824,8 @@ function togglePkgFilterAll(type) {
   });
 }
 
-function showCitySelector() {
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
-  const selected = getPkgSelectedCities();
-  const html = citySet.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:3px 0;"><input type="checkbox" ${selected.has(c) ? 'checked' : ''} data-city="${c}"> ${c}</label>`).join('');
-  const modal = document.createElement('div');
-  modal.id = 'city-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;';
-  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;max-width:400px;max-height:70vh;overflow-y:auto;">
-    <div style="font-weight:600;margin-bottom:12px;">选择城市</div>
-    <div id="city-checkboxes">${html}</div>
-    <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" style="padding:6px 16px;font-size:13px;" onclick="confirmCitySelector()">确定</button></div>
-  </div>`;
-  document.body.appendChild(modal);
-  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-}
-
-function confirmCitySelector() {
-  const modal = document.getElementById('city-modal');
-  const checked = modal.querySelectorAll('input[data-city]:checked');
-  const count = checked.length;
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
-  // 同步到内存
-  window._pkgSelectedCities = new Set([...checked].map(c => c.dataset.city));
-  document.getElementById('pkg-city-summary').textContent = `已选 ${count} 个`;
-  modal.remove();
-}
-
 function getPkgSelectedCities() {
-  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
-  if (citySet.length > 15) {
-    return window._pkgSelectedCities || new Set(citySet);
-  }
-  const tags = document.querySelectorAll('#pkg-filter-city .filter-tag[data-city].active');
-  return new Set([...tags].map(t => t.dataset.city));
+  return window._pkgSelectedCities || new Set();
 }
 
 function getPkgSelectedL1s() {
@@ -3068,12 +3136,15 @@ function renderPkgTable(page) {
 function exportPackages() {
   if (pkgResults.length === 0) { alert('请先生成词包'); return; }
 
-  const rows = [['词包名称','档位','维度','关键词数','总消耗','总曝光','总点击','平均CPC','平均CTR','档内离散度','关键词列表']];
+  // 每个关键词一行，包含词包信息
+  const rows = [['关键词','词包名称','档位','业务线','意图词包','城市','花费','曝光量','点击量','CTR','CPC']];
   pkgResults.forEach(pkg => {
-    const avgCpc = pkg.click > 0 ? (pkg.cost / pkg.click).toFixed(2) : '-';
-    const avgCtr = pkg.impression > 0 ? (pkg.click / pkg.impression * 100).toFixed(2) + '%' : '-';
-    const kwList = pkg.items.map(r => r.kw.replace(/[\r\n,]/g, ' ')).join('|');
-    rows.push([pkg.name, pkg.tierLabel, pkg.dimLabel, pkg.items.length, pkg.cost, pkg.impression, pkg.click, avgCpc, avgCtr, (pkg.variance * 100).toFixed(1) + '%', kwList]);
+    pkg.items.forEach(r => {
+      const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
+      const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
+      const kw = String(r.kw).replace(/[\r\n,]/g, ' ');
+      rows.push([kw, pkg.name, pkg.tierLabel + pkg.dimLabel, r.l1, r.l2, r.city, r.cost, r.impression, r.click, ctr, cpc]);
+    });
   });
 
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
