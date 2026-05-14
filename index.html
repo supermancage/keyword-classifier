@@ -1183,6 +1183,7 @@ function clearFilters() {
 }
 
 function renderAll(results, ms) {
+  ensureDataLabelsPlugin();
   document.getElementById('result-area').classList.remove('hidden');
   initFilters();
   currentPage = 1;
@@ -1291,8 +1292,14 @@ const dataLabelsPlugin = {
   }
 };
 
-// 注册插件
-Chart.register(dataLabelsPlugin);
+// 注册插件（延迟注册：Chart 由 defer CDN 加载，内联脚本执行时 Chart 可能尚未就绪）
+let _dlpRegistered = false;
+function ensureDataLabelsPlugin() {
+  if (!_dlpRegistered && typeof Chart !== 'undefined') {
+    Chart.register(dataLabelsPlugin);
+    _dlpRegistered = true;
+  }
+}
 
 function renderL1Chart(counts, total) {
   if (charts.l1) charts.l1.destroy();
