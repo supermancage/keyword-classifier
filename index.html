@@ -463,57 +463,82 @@
         <span style="font-size:12px;color:#6b7280;" id="pkg-hint">分类后可生成词包组合</span>
       </div>
 
-      <!-- 维度选择 -->
-      <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-bottom:16px;">
-        <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:10px;">🧩 组合维度</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:default;">
-            <input type="checkbox" id="pkg-dim-l1" checked disabled> <span style="color:#1a73e8;font-weight:600;">业务线</span>
+      <!-- 第一步：筛选范围 -->
+      <div style="background:#f0f7ff;border-radius:10px;padding:16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;color:#1a73e8;margin-bottom:10px;">① 筛选范围 <span style="font-weight:400;color:#6b7280;">— 选哪些业务线和城市参与组合</span></div>
+        <div style="margin-bottom:10px;">
+          <span style="font-size:12px;color:#6b7280;font-weight:500;">业务线：</span>
+          <div id="pkg-filter-l1" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+            <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
+          </div>
+        </div>
+        <div>
+          <span style="font-size:12px;color:#6b7280;font-weight:500;">城市：</span>
+          <div id="pkg-filter-city" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+            <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第二步：组合维度 -->
+      <div style="background:#fefce8;border-radius:10px;padding:16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:10px;">② 组合维度 <span style="font-weight:400;color:#6b7280;">— 按什么指标来划分词包</span></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #fbbf24;background:#fff;cursor:pointer;transition:all .15s;">
+            <input type="radio" name="pkg-dim" value="cost" checked> <span style="color:#ef4444;font-weight:600;">💰 按消耗</span>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:default;">
-            <input type="checkbox" id="pkg-dim-l2" checked disabled> <span style="color:#8b5cf6;font-weight:600;">意图词包</span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #d1d5db;background:#fff;cursor:pointer;transition:all .15s;">
+            <input type="radio" name="pkg-dim" value="impression"> <span style="color:#3b82f6;font-weight:600;">👁 按展示</span>
           </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:pointer;">
-            <input type="checkbox" id="pkg-dim-city"> <span style="color:#10b981;font-weight:500;">城市</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:pointer;">
-            <input type="checkbox" id="pkg-dim-cost"> <span style="color:#ef4444;font-weight:500;">消耗档位</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:pointer;">
-            <input type="checkbox" id="pkg-dim-impression"> <span style="color:#3b82f6;font-weight:500;">展示档位</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 14px;border-radius:20px;border:1px solid #d1d5db;background:#fff;cursor:pointer;">
-            <input type="checkbox" id="pkg-dim-click"> <span style="color:#f59e0b;font-weight:500;">点击档位</span>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #d1d5db;background:#fff;cursor:pointer;transition:all .15s;">
+            <input type="radio" name="pkg-dim" value="click"> <span style="color:#10b981;font-weight:600;">🖱 按点击</span>
           </label>
         </div>
+        <div style="margin-top:10px;font-size:12px;color:#6b7280;line-height:1.7;">
+          算法会基于所选维度，在每条业务线×意图词包下自动寻找<strong>最优分档</strong>（Jenks 自然断点法），让同一档内的关键词指标尽量均匀，不同档之间差异最大化。
+        </div>
+      </div>
 
-        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+      <!-- 第三步：参数 -->
+      <div style="background:#f0fdf4;border-radius:10px;padding:16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;color:#065f46;margin-bottom:10px;">③ 参数设置</div>
+        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
             <span style="color:#6b7280;">词包总量上限：</span>
             <input type="number" id="pkg-max" value="1000" min="10" max="5000" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
           </div>
           <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-            <span style="color:#6b7280;">档位分界：</span>
-            <select id="pkg-tier-method" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;">
-              <option value="p33">三档（高/中/低 ≈ 33%/34%/33%）</option>
-              <option value="p20">五档（极高/高/中/低/极低 ≈ 20%每档）</option>
+            <span style="color:#6b7280;">最小词包关键词数：</span>
+            <input type="number" id="pkg-min-size" value="3" min="1" max="100" style="width:60px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
+            <span style="color:#6b7280;">最大分档数：</span>
+            <select id="pkg-max-tiers" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;">
+              <option value="2">2 档（高/低）</option>
+              <option value="3" selected>3 档（高/中/低）</option>
+              <option value="4">4 档</option>
+              <option value="5">5 档</option>
             </select>
           </div>
-          <button class="btn btn-primary" style="padding:7px 18px;font-size:13px;" onclick="generatePackages()">🔄 生成词包</button>
         </div>
       </div>
 
+      <div style="text-align:center;margin-bottom:14px;">
+        <button class="btn btn-primary" style="padding:10px 32px;font-size:14px;" onclick="generatePackages()">🧠 智能生成词包</button>
+      </div>
+
       <!-- 词包统计 -->
-      <div id="pkg-stats" class="hidden" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">
+      <div id="pkg-stats" class="hidden" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
         <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-count" style="font-size:24px;">0</div><div class="label">词包总数</div></div>
         <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-kw" style="font-size:24px;color:#1a73e8;">0</div><div class="label">覆盖关键词</div></div>
         <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-avg" style="font-size:24px;color:#8b5cf6;">0</div><div class="label">平均词包大小</div></div>
         <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-cost" style="font-size:24px;color:#ef4444;">¥0</div><div class="label">总消耗</div></div>
+        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-optimality" style="font-size:24px;color:#10b981;">-</div><div class="label">组内均匀度</div></div>
       </div>
 
       <!-- 词包表格 -->
       <div id="pkg-table-wrap" class="hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <div style="display:flex;gap:8px;align-items:center;">
             <input type="text" id="pkg-search" placeholder="搜索词包…" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:200px;outline:none;" oninput="renderPkgTable(1)">
             <select id="pkg-sort" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);" onchange="renderPkgTable(1)">
@@ -525,6 +550,8 @@
               <option value="impression-asc">曝光 ↑</option>
               <option value="click-desc">点击 ↓</option>
               <option value="click-asc">点击 ↑</option>
+              <option value="variance-desc">档内离散 ↓</option>
+              <option value="variance-asc">档内离散 ↑</option>
             </select>
           </div>
           <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;" onclick="exportPackages()">📥 导出词包 Excel</button>
@@ -535,13 +562,14 @@
               <tr>
                 <th>#</th>
                 <th>词包名称</th>
-                <th>维度</th>
+                <th>档位</th>
                 <th>关键词数</th>
                 <th>总消耗</th>
                 <th>总曝光</th>
                 <th>总点击</th>
                 <th>平均CPC</th>
                 <th>平均CTR</th>
+                <th>档内离散度</th>
                 <th>关键词示例</th>
               </tr>
             </thead>
@@ -1356,6 +1384,7 @@ function renderAll(results, ms) {
   document.getElementById('pkg-table-wrap').classList.add('hidden');
   document.getElementById('pkg-hint').textContent = `分类完成，可生成词包组合`;
   document.getElementById('pkg-search').value = '';
+  initPkgFilters();
 }
 
 // Chart.js 数据标签插件
@@ -2612,124 +2641,327 @@ function renderWordCloud() {
 }
 
 // ═══════════════════════════════════════════════════
-// 词包生成器
+// 词包生成器（v2：筛选 + 维度选择 + Jenks 最优分档）
 // ═══════════════════════════════════════════════════
 
-let pkgResults = [];   // 生成的词包列表
+let pkgResults = [];
 let pkgPage = 1;
 const PKG_PAGE_SIZE = 30;
 
+// 初始化词包筛选器（分类完成后调用）
+function initPkgFilters() {
+  // 业务线筛选
+  const l1Set = [...new Set(allResults.map(r => r.l1).filter(Boolean))].sort();
+  const l1Container = document.getElementById('pkg-filter-l1');
+  l1Container.innerHTML = l1Set.map(l1 => {
+    const meta = L1_META[l1] || { cls: '', color: '#999' };
+    return `<span class="filter-tag active" data-l1="${l1}" onclick="togglePkgFilter(this,'l1')" style="border-color:${meta.color};color:${meta.color}">${l1}</span>`;
+  }).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('l1')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
+
+  // 城市筛选
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  const cityContainer = document.getElementById('pkg-filter-city');
+  if (citySet.length === 0) {
+    cityContainer.innerHTML = '<span style="color:#9ca3af;font-size:12px;">无城市数据（需上传含城市信息的文件）</span>';
+  } else if (citySet.length <= 15) {
+    cityContainer.innerHTML = citySet.map(c => `<span class="filter-tag active" data-city="${c}" onclick="togglePkgFilter(this,'city')">${c}</span>`).join('') + `<span class="filter-tag" onclick="togglePkgFilterAll('city')" style="font-size:11px;color:#6b7280;">全选/反选</span>`;
+  } else {
+    // 城市太多时用下拉多选
+    cityContainer.innerHTML = `<span style="font-size:12px;color:#6b7280;">${citySet.length} 个城市，</span><a href="javascript:void(0)" onclick="showCitySelector()" style="font-size:12px;color:var(--primary);">选择城市…</a><span id="pkg-city-summary" style="font-size:12px;color:#10b981;margin-left:6px;">已选 ${citySet.length} 个</span>`;
+  }
+
+  // radio 样式联动
+  document.querySelectorAll('input[name=pkg-dim]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('input[name=pkg-dim]').forEach(r => {
+        r.closest('label').style.borderColor = r.checked ? '#fbbf24' : '#d1d5db';
+      });
+    });
+  });
+}
+
+function togglePkgFilter(el, type) {
+  el.classList.toggle('active');
+}
+
+function togglePkgFilterAll(type) {
+  const container = document.getElementById(type === 'l1' ? 'pkg-filter-l1' : 'pkg-filter-city');
+  const tags = container.querySelectorAll('.filter-tag[data-' + type + ']');
+  const allActive = [...tags].every(t => t.classList.contains('active'));
+  tags.forEach(t => t.classList.toggle('active', !allActive));
+}
+
+function showCitySelector() {
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  const selected = getPkgSelectedCities();
+  const html = citySet.map(c => `<label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:3px 0;"><input type="checkbox" ${selected.has(c) ? 'checked' : ''} data-city="${c}"> ${c}</label>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'city-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `<div style="background:#fff;border-radius:12px;padding:20px;max-width:400px;max-height:70vh;overflow-y:auto;">
+    <div style="font-weight:600;margin-bottom:12px;">选择城市</div>
+    <div id="city-checkboxes">${html}</div>
+    <div style="margin-top:12px;text-align:right;"><button class="btn btn-primary" style="padding:6px 16px;font-size:13px;" onclick="confirmCitySelector()">确定</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function confirmCitySelector() {
+  const modal = document.getElementById('city-modal');
+  const checked = modal.querySelectorAll('input[data-city]:checked');
+  const count = checked.length;
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  // 同步到内存
+  window._pkgSelectedCities = new Set([...checked].map(c => c.dataset.city));
+  document.getElementById('pkg-city-summary').textContent = `已选 ${count} 个`;
+  modal.remove();
+}
+
+function getPkgSelectedCities() {
+  const citySet = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
+  if (citySet.length > 15) {
+    return window._pkgSelectedCities || new Set(citySet);
+  }
+  const tags = document.querySelectorAll('#pkg-filter-city .filter-tag[data-city].active');
+  return new Set([...tags].map(t => t.dataset.city));
+}
+
+function getPkgSelectedL1s() {
+  const tags = document.querySelectorAll('#pkg-filter-l1 .filter-tag[data-l1].active');
+  return new Set([...tags].map(t => t.dataset.l1));
+}
+
+// ── Jenks 自然断点法 ──
+// 在一组排序数值中寻找 k 个断点，使组内方差最小、组间差异最大
+function jenksBreaks(values, k) {
+  // values: 已排序的数值数组（升序）
+  const n = values.length;
+  if (n <= k) {
+    // 数据量不够分 k 档，直接每条一档
+    return values.slice(0, n - 1);
+  }
+
+  // 动态规划求最优断点
+  // mat1[i][j] = 前i个数据分成j组的组内方差之和最小值
+  const mat1 = Array.from({ length: n + 1 }, () => Array(k + 1).fill(Infinity));
+  const mat2 = Array.from({ length: n + 1 }, () => Array(k + 1).fill(0));
+
+  mat1[0][0] = 0;
+
+  // 前缀和，用于快速计算区间方差
+  const prefixSum = [0];
+  const prefixSq = [0];
+  for (let i = 0; i < n; i++) {
+    prefixSum.push(prefixSum[i] + values[i]);
+    prefixSq.push(prefixSq[i] + values[i] * values[i]);
+  }
+
+  function variance(lo, hi) {
+    // 区间 [lo, hi) 的方差 * n
+    const count = hi - lo;
+    if (count <= 1) return 0;
+    const sum = prefixSum[hi] - prefixSum[lo];
+    const sq = prefixSq[hi] - prefixSq[lo];
+    return sq - sum * sum / count;
+  }
+
+  for (let i = 1; i <= n; i++) {
+    for (let j = 1; j <= Math.min(i, k); j++) {
+      for (let x = j - 1; x < i; x++) {
+        const v = mat1[x][j - 1] + variance(x, i);
+        if (v < mat1[i][j]) {
+          mat1[i][j] = v;
+          mat2[i][j] = x;
+        }
+      }
+    }
+  }
+
+  // 回溯断点位置
+  const breaks = [];
+  let pos = n;
+  for (let j = k; j >= 2; j--) {
+    pos = mat2[pos][j];
+    breaks.push(values[pos]);
+  }
+  return breaks.reverse();
+}
+
+// ── 主生成函数 ──
 function generatePackages() {
   if (allResults.length === 0) { alert('请先进行关键词分类'); return; }
 
-  const dimCity = document.getElementById('pkg-dim-city').checked;
-  const dimCost = document.getElementById('pkg-dim-cost').checked;
-  const dimImp = document.getElementById('pkg-dim-impression').checked;
-  const dimClick = document.getElementById('pkg-dim-click').checked;
+  const selectedL1 = getPkgSelectedL1s();
+  const selectedCities = getPkgSelectedCities();
+  const dim = document.querySelector('input[name=pkg-dim]:checked').value;
   const maxPkgs = parseInt(document.getElementById('pkg-max').value) || 1000;
-  const tierMethod = document.getElementById('pkg-tier-method').value;
+  const minSize = parseInt(document.getElementById('pkg-min-size').value) || 3;
+  const maxTiers = parseInt(document.getElementById('pkg-max-tiers').value) || 3;
 
-  // 1. 为每条关键词计算档位标签
-  const tierLabels = tierMethod === 'p20'
-    ? ['极高','高','中','低','极低']
-    : ['高','中','低'];
+  // 维度映射
+  const dimLabel = { cost: '消耗', impression: '展示', click: '点击' }[dim];
+  const dimKey = dim; // r.cost, r.impression, r.click
 
-  const tierClasses = tierMethod === 'p20'
-    ? ['vhigh','high','mid','low','vlow']
-    : ['high','mid','low'];
-
-  function assignTiers(values, n) {
-    // values: [{idx, val}]，按 val 降序排列
-    const total = values.length;
-    if (total === 0) return {};
-    const result = {};
-    const perTier = total / n;
-    values.forEach((item, i) => {
-      const tier = Math.min(Math.floor(i / perTier), n - 1);
-      result[item.idx] = tier;
-    });
-    return result;
-  }
-
-  // 构建消耗、曝光、点击排序
-  const costSorted = allResults.map((r, i) => ({ idx: i, val: r.cost || 0 })).sort((a, b) => b.val - a.val);
-  const impSorted = allResults.map((r, i) => ({ idx: i, val: r.impression || 0 })).sort((a, b) => b.val - a.val);
-  const clickSorted = allResults.map((r, i) => ({ idx: i, val: r.click || 0 })).sort((a, b) => b.val - a.val);
-  const n = tierLabels.length;
-  const costTierMap = assignTiers(costSorted, n);
-  const impTierMap = assignTiers(impSorted, n);
-  const clickTierMap = assignTiers(clickSorted, n);
-
-  // 2. 按维度分组
-  const groups = {};
-  allResults.forEach((r, i) => {
-    const parts = [r.l1 || '未分类', r.l2 || '通用词'];
-    if (dimCity) parts.push(r.city || '其他城市');
-    if (dimCost) parts.push('消耗:' + tierLabels[costTierMap[i]]);
-    if (dimImp) parts.push('展示:' + tierLabels[impTierMap[i]]);
-    if (dimClick) parts.push('点击:' + tierLabels[clickTierMap[i]]);
-    const key = parts.join(' > ');
-    if (!groups[key]) {
-      groups[key] = { name: key, dims: [], items: [], cost: 0, impression: 0, click: 0 };
-    }
-    groups[key].items.push(r);
-    groups[key].cost += r.cost || 0;
-    groups[key].impression += r.impression || 0;
-    groups[key].click += r.click || 0;
+  // ① 按业务线 + 城市筛选
+  const filtered = allResults.filter(r => {
+    if (!selectedL1.has(r.l1)) return false;
+    if (r.city && !selectedCities.has(r.city)) return false;
+    return true;
   });
 
-  // 3. 如果分组数 > 上限，合并最小的组
-  let entries = Object.values(groups);
-  if (entries.length > maxPkgs) {
-    // 按关键词数升序排列，优先合并小组
-    entries.sort((a, b) => a.items.length - b.items.length);
-    while (entries.length > maxPkgs) {
-      const smallest = entries.shift();
-      // 找到 L1 相同的最近合并对象
-      const target = entries.find(e => e.name.startsWith(smallest.items[0].l1));
+  if (filtered.length === 0) { alert('筛选后无关键词，请调整筛选条件'); return; }
+
+  // ② 按 业务线 > 意图词包 分组
+  const groups = {};
+  filtered.forEach(r => {
+    const key = (r.l1 || '未分类') + '>' + (r.l2 || '通用词');
+    if (!groups[key]) groups[key] = { l1: r.l1, l2: r.l2, items: [] };
+    groups[key].items.push(r);
+  });
+
+  // ③ 在每个分组内用 Jenks 自然断点法按维度分档
+  const tierNames = ['头部','中上','中等','中下','尾部'];
+  const tierClasses = ['high','vhigh','mid','low','vlow'];
+  let packages = [];
+  let totalVariance = 0;
+  let totalItems = 0;
+
+  Object.values(groups).forEach(group => {
+    const items = group.items;
+    const metricValues = items.map(r => r[dimKey] || 0).sort((a, b) => a - b);
+
+    // 决定分档数：关键词少于 minSize*2 不分档，少于 minSize*3 分2档，依此类推
+    let tiers = 1;
+    for (let t = maxTiers; t >= 2; t--) {
+      if (items.length >= minSize * t) { tiers = t; break; }
+    }
+
+    if (tiers <= 1) {
+      // 不分档，整包输出
+      const pkg = buildPackage(group.l1 + ' > ' + group.l2, items, '不分档', dimLabel);
+      packages.push(pkg);
+      totalVariance += pkg.variance;
+      totalItems += items.length;
+    } else {
+      // 用 Jenks 找断点
+      const breaks = jenksBreaks(metricValues, tiers);
+
+      // 将关键词分配到各档
+      // 断点 breakPoints: [v1, v2, ...] 表示第一档 ≤ v1, 第二档 ≤ v2, ...
+      const sortedItems = [...items].sort((a, b) => (a[dimKey] || 0) - (b[dimKey] || 0));
+      const tierItems = Array.from({ length: tiers }, () => []);
+      let breakIdx = 0;
+
+      sortedItems.forEach(item => {
+        const val = item[dimKey] || 0;
+        // 找到所属档位
+        while (breakIdx < breaks.length && val > breaks[breakIdx]) breakIdx++;
+        const tier = Math.min(breakIdx, tiers - 1);
+        tierItems[tier].push(item);
+      });
+
+      tierItems.forEach((tierGroup, t) => {
+        if (tierGroup.length === 0) return;
+        const label = tierNames[Math.round(t * (tierNames.length - 1) / Math.max(1, tiers - 1))];
+        const name = group.l1 + ' > ' + group.l2 + ' > ' + label + dimLabel;
+        const pkg = buildPackage(name, tierGroup, label, dimLabel);
+        pkg.tierClass = tierClasses[Math.round(t * (tierClasses.length - 1) / Math.max(1, tiers - 1))];
+        packages.push(pkg);
+        totalVariance += pkg.variance;
+        totalItems += tierGroup.length;
+      });
+    }
+  });
+
+  // ④ 如果词包数超上限，合并最小的词包
+  if (packages.length > maxPkgs) {
+    packages.sort((a, b) => a.items.length - b.items.length);
+    while (packages.length > maxPkgs) {
+      const smallest = packages.shift();
+      // 合并到同 L1 下关键词数最少的包
+      const target = packages
+        .filter(p => p.items[0] && p.items[0].l1 === smallest.items[0].l1)
+        .sort((a, b) => a.items.length - b.items.length)[0];
       if (target) {
         target.items.push(...smallest.items);
         target.cost += smallest.cost;
         target.impression += smallest.impression;
         target.click += smallest.click;
-        // 更新名称：如果合并了同 L1 下的不同子组，简化名称
-        if (!target.name.includes('等')) {
-          target.name = target.items[0].l1 + ' > 合并词包等';
+        target.tierLabel = '合并';
+        target.variance = calcVariance(target.items, dimKey);
+        // 更新名称
+        if (!target.name.includes('合并')) {
+          target.name = smallest.items[0].l1 + ' > 合并词包';
         }
       } else {
-        entries.push(smallest); // 没找到就放回去
+        packages.push(smallest);
         break;
       }
     }
   }
 
-  // 4. 按关键词数降序排列
-  entries.sort((a, b) => b.items.length - a.items.length);
+  // 按关键词数降序
+  packages.sort((a, b) => b.items.length - a.items.length);
 
-  // 5. 计算维度标签
-  entries.forEach(pkg => {
-    const dimTags = [];
-    if (dimCity) dimTags.push('城市');
-    if (dimCost) dimTags.push('消耗档');
-    if (dimImp) dimTags.push('展示档');
-    if (dimClick) dimTags.push('点击档');
-    pkg.dimLabel = dimTags.length > 0 ? dimTags.join('+') : '业务线+意图';
-  });
-
-  pkgResults = entries;
+  pkgResults = packages;
   pkgPage = 1;
 
-  // 统计
+  // ⑤ 统计
   document.getElementById('pkg-stats').classList.remove('hidden');
-  document.getElementById('pkg-stat-count').textContent = pkgResults.length;
   const totalKw = pkgResults.reduce((s, p) => s + p.items.length, 0);
+  const avgVariance = totalItems > 0 ? totalVariance / totalItems : 0;
+  // 均匀度：1 - 归一化方差（越小越均匀，转为百分比）
+  const maxPossibleVar = calcMaxVariance(filtered, dimKey);
+  const uniformity = maxPossibleVar > 0 ? Math.max(0, (1 - avgVariance / maxPossibleVar) * 100).toFixed(1) : '100.0';
+
+  document.getElementById('pkg-stat-count').textContent = pkgResults.length;
   document.getElementById('pkg-stat-kw').textContent = totalKw.toLocaleString();
-  document.getElementById('pkg-stat-avg').textContent = Math.round(totalKw / pkgResults.length);
+  document.getElementById('pkg-stat-avg').textContent = pkgResults.length > 0 ? Math.round(totalKw / pkgResults.length) : 0;
   document.getElementById('pkg-stat-cost').textContent = '¥' + pkgResults.reduce((s, p) => s + p.cost, 0).toLocaleString();
+  document.getElementById('pkg-stat-optimality').textContent = uniformity + '%';
 
   document.getElementById('pkg-table-wrap').classList.remove('hidden');
-  document.getElementById('pkg-hint').textContent = `已生成 ${pkgResults.length} 个词包`;
+  document.getElementById('pkg-hint').textContent = `已生成 ${pkgResults.length} 个词包（${dimLabel}维度）`;
+  document.getElementById('pkg-search').value = '';
   renderPkgTable(1);
+}
+
+function buildPackage(name, items, tierLabel, dimLabel) {
+  const pkg = {
+    name,
+    tierLabel,
+    dimLabel,
+    tierClass: 'mid',
+    items,
+    cost: items.reduce((s, r) => s + (r.cost || 0), 0),
+    impression: items.reduce((s, r) => s + (r.impression || 0), 0),
+    click: items.reduce((s, r) => s + (r.click || 0), 0),
+    variance: 0
+  };
+  // 计算档内离散度（CV = 标准差/均值）
+  const dimKey = document.querySelector('input[name=pkg-dim]:checked').value;
+  pkg.variance = calcVariance(items, dimKey);
+  return pkg;
+}
+
+function calcVariance(items, dimKey) {
+  if (items.length <= 1) return 0;
+  const vals = items.map(r => r[dimKey] || 0);
+  const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+  if (mean === 0) return 0;
+  const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length;
+  // 返回变异系数 CV（归一化）
+  return Math.sqrt(variance) / mean;
+}
+
+function calcMaxVariance(items, dimKey) {
+  const vals = items.map(r => r[dimKey] || 0).filter(v => v > 0);
+  if (vals.length <= 1) return 1;
+  const mean = vals.reduce((s, v) => s + v, 0) / vals.length;
+  if (mean === 0) return 1;
+  const variance = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / vals.length;
+  return Math.sqrt(variance) / mean;
 }
 
 function renderPkgTable(page) {
@@ -2739,7 +2971,6 @@ function renderPkgTable(page) {
   let items = [...pkgResults];
   if (search) items = items.filter(p => p.name.toLowerCase().includes(search));
 
-  // 排序
   const [field, dir] = sortVal.split('-');
   items.sort((a, b) => {
     let va, vb;
@@ -2747,6 +2978,7 @@ function renderPkgTable(page) {
     else if (field === 'cost') { va = a.cost; vb = b.cost; }
     else if (field === 'impression') { va = a.impression; vb = b.impression; }
     else if (field === 'click') { va = a.click; vb = b.click; }
+    else if (field === 'variance') { va = a.variance; vb = b.variance; }
     return dir === 'desc' ? vb - va : va - vb;
   });
 
@@ -2755,32 +2987,38 @@ function renderPkgTable(page) {
   const start = (page - 1) * PKG_PAGE_SIZE;
   const pageItems = items.slice(start, start + PKG_PAGE_SIZE);
 
+  const dimKey = document.querySelector('input[name=pkg-dim]:checked').value;
+
   const tbody = document.getElementById('pkg-tbody');
   tbody.innerHTML = pageItems.map((pkg, i) => {
     const avgCpc = pkg.click > 0 ? '¥' + (pkg.cost / pkg.click).toFixed(2) : '-';
     const avgCtr = pkg.impression > 0 ? (pkg.click / pkg.impression * 100).toFixed(2) + '%' : '-';
     const sample = pkg.items.slice(0, 3).map(r => r.kw).join('、');
     const more = pkg.items.length > 3 ? `等${pkg.items.length}个` : '';
-    // 给词包名称着色
     const nameHtml = escHtml(pkg.name).replace(/^([^>]+)( > )?/, (m, l1, sep) => {
       const meta = L1_META[l1];
       return meta ? `<span class="l1-badge ${meta.cls}">${l1}</span>${sep || ''}` : m;
     });
+    const tierHtml = pkg.tierLabel === '不分档' || pkg.tierLabel === '合并'
+      ? `<span class="l2-tag">${pkg.tierLabel}</span>`
+      : `<span class="pkg-tier ${pkg.tierClass}">${pkg.tierLabel}${pkg.dimLabel}</span>`;
+    const cvPct = (pkg.variance * 100).toFixed(1);
+    const cvColor = pkg.variance < 0.3 ? '#10b981' : pkg.variance < 0.7 ? '#f59e0b' : '#ef4444';
     return `<tr>
       <td class="num" style="color:#9ca3af">${start + i + 1}</td>
-      <td style="font-weight:500;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(pkg.name)}">${nameHtml}</td>
-      <td><span class="l2-tag">${pkg.dimLabel}</span></td>
+      <td style="font-weight:500;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(pkg.name)}">${nameHtml}</td>
+      <td>${tierHtml}</td>
       <td class="num" style="font-weight:600;color:#1a73e8">${pkg.items.length}</td>
       <td class="num" style="color:#ef4444">${pkg.cost ? '¥' + pkg.cost.toLocaleString() : '-'}</td>
       <td class="num" style="color:#3b82f6">${pkg.impression ? pkg.impression.toLocaleString() : '-'}</td>
       <td class="num" style="color:#10b981">${pkg.click ? pkg.click.toLocaleString() : '-'}</td>
       <td class="num">${avgCpc}</td>
       <td class="num">${avgCtr}</td>
+      <td class="num" style="color:${cvColor};font-weight:500">${cvPct}%</td>
       <td class="pkg-kw-sample" title="${escHtml(sample + more)}">${escHtml(sample)}${more ? '<span style="color:#1a73e8">' + more + '</span>' : ''}</td>
     </tr>`;
   }).join('');
 
-  // 分页
   const pgEl = document.getElementById('pkg-pagination');
   if (items.length <= PKG_PAGE_SIZE) { pgEl.innerHTML = ''; return; }
   let html = `<span class="page-info">${items.length} 个词包，第 ${page}/${totalPages} 页</span>`;
@@ -2797,12 +3035,12 @@ function renderPkgTable(page) {
 function exportPackages() {
   if (pkgResults.length === 0) { alert('请先生成词包'); return; }
 
-  const rows = [['词包名称','维度','关键词数','总消耗','总曝光','总点击','平均CPC','平均CTR','关键词列表']];
+  const rows = [['词包名称','档位','维度','关键词数','总消耗','总曝光','总点击','平均CPC','平均CTR','档内离散度','关键词列表']];
   pkgResults.forEach(pkg => {
     const avgCpc = pkg.click > 0 ? (pkg.cost / pkg.click).toFixed(2) : '-';
     const avgCtr = pkg.impression > 0 ? (pkg.click / pkg.impression * 100).toFixed(2) + '%' : '-';
     const kwList = pkg.items.map(r => r.kw).join('|');
-    rows.push([pkg.name, pkg.dimLabel, pkg.items.length, pkg.cost, pkg.impression, pkg.click, avgCpc, avgCtr, kwList]);
+    rows.push([pkg.name, pkg.tierLabel, pkg.dimLabel, pkg.items.length, pkg.cost, pkg.impression, pkg.click, avgCpc, avgCtr, (pkg.variance * 100).toFixed(1) + '%', kwList]);
   });
 
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
