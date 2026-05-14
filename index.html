@@ -4,10 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>智词引擎 · 同程旅行关键词智能分类平台</title>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.js" defer></script>
   <style>
+    /* 内联首屏样式：CDN未加载时也能显示loading */
+    @keyframes inline-spin { to { transform: rotate(360deg); } }
+    #cdn-loading { position: fixed; inset: 0; background: #fff; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    #cdn-loading .ring { width: 44px; height: 44px; border: 3px solid #e5e7eb; border-top-color: #1a73e8; border-radius: 50%; animation: inline-spin .8s linear infinite; }
+    #cdn-loading p { color: #6b7280; font-size: 14px; }
     :root {
       --bg: #f7f8fc;
       --card: #ffffff;
@@ -50,7 +55,9 @@
     .file-area input { display: none; }
     .file-area .icon { font-size: 32px; margin-bottom: 8px; }
     .file-area p { font-size: 14px; color: var(--text-muted); }
-    .file-area .filename { font-weight: 600; color: var(--primary); margin-top: 4px; }
+    .file-area .filename { font-weight: 600; color: var(--primary); margin-top: 8px; font-size: 15px; }
+    .file-area.has-file .icon { display: none; }
+    .file-area.has-file p { display: none; }
 
     .upload-row { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
     .upload-row input[type="file"] { font-size: 13px; }
@@ -143,6 +150,8 @@
   </style>
 </head>
 <body>
+<!-- CDN 加载指示器：脚本加载完成后自动隐藏 -->
+<div id="cdn-loading"><div class="ring"></div><p>资源加载中…</p></div>
 <div class="container">
 
   <!-- Header -->
@@ -1719,17 +1728,22 @@ dropzone.addEventListener('drop', e => {
   e.preventDefault();
   dropzone.classList.remove('dragover');
   const files = e.dataTransfer.files;
-  if (files.length > 0) document.getElementById('file-input').files = files;
+  if (files.length > 0) {
+    document.getElementById('file-input').files = files;
+    // 手动触发 change 显示反馈
+    document.getElementById('file-input').dispatchEvent(new Event('change'));
+  }
 });
 document.getElementById('file-input').addEventListener('change', function() {
-  console.log('File input change event triggered');
   const f = this.files[0];
   if (f) {
-    console.log('File selected:', f.name, f.size);
-    document.getElementById('filename-display').textContent = '✅ ' + f.name + ' (' + (f.size/1024).toFixed(0) + ' KB)';
-    document.getElementById('file-info').innerHTML = `<span class="file-info-badge">📁 ${f.name}</span>`;
-  } else {
-    console.log('No file selected');
+    const sizeStr = f.size > 1024*1024 ? (f.size/1024/1024).toFixed(1) + ' MB' : (f.size/1024).toFixed(0) + ' KB';
+    // dropzone 内部显示文件名
+    const dropzone = document.getElementById('dropzone');
+    dropzone.classList.add('has-file');
+    document.getElementById('filename-display').textContent = '✅ ' + f.name + '（' + sizeStr + '）';
+    // 操作栏显示醒目标记
+    document.getElementById('file-info').innerHTML = '<span class="file-info-badge">📁 ' + f.name + '（' + sizeStr + '）</span>';
   }
 });
 
@@ -2475,6 +2489,10 @@ function renderWordCloud() {
     console.warn('词云渲染异常:', e);
   }
 }
+
+// 移除 CDN 加载指示器
+const cdnLoading = document.getElementById('cdn-loading');
+if (cdnLoading) cdnLoading.remove();
 
 </script>
 </body>
