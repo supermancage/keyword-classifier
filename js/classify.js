@@ -44,7 +44,7 @@ KC.RegexEngine = {};
 
 // ── 分类核心引擎 ──
 KC.Classifier = {};
-(function(C, L1, L2, Ent, Re) {
+(function(C, L1, L2, Ent, Re, Poi) {
   const buildRe = Re.buildRe;
   const buildReG = Re.buildReG;
   const reCache = Re.cache;
@@ -125,15 +125,18 @@ KC.Classifier = {};
   const _reCountryNamesG = buildReG(Ent.COUNTRY_NAMES_JS);
   const _reCitiesG = buildReG(L1.CITIES);
   const _rePoiAbbrG = buildReG(Ent.POI_ABBR_KEYS);
+  const _poiCityKeys = Object.keys(Poi.POI_CITY_MAP_JS).sort((a, b) => b.length - a.length);
+  const _rePoiCityG = buildReG(_poiCityKeys);
   const INTL_GENERIC_WORDS_SET = new Set(L1.INTL_GENERIC_WORDS);
 
   function extractCountry(kw, l1) {
   if (['国内酒店','国内机票','火车票'].includes(l1)) return '中国';
-  // POI 缩写映射（如"港迪"→香港→中国）
-  const poiCity = _firstMatch(kw, _rePoiAbbrG, Ent.POI_ABBR_MAP);
-  if (poiCity) {
-  if (Ent.COUNTRY_MAP_JS[poiCity]) return Ent.COUNTRY_MAP_JS[poiCity];
-  if (Ent.INTL_CITY_COUNTRY_JS[poiCity]) return Ent.INTL_CITY_COUNTRY_JS[poiCity];
+  // POI 缩写映射（如"港迪"→香港→中国），用映射值查找而非匹配键
+  const poiAbbr = _firstMatch(kw, _rePoiAbbrG, Ent.POI_ABBR_MAP);
+  if (poiAbbr) {
+  const mappedCity = Ent.POI_ABBR_MAP[poiAbbr];
+  if (Ent.COUNTRY_MAP_JS[mappedCity]) return Ent.COUNTRY_MAP_JS[mappedCity];
+  if (Ent.INTL_CITY_COUNTRY_JS[mappedCity]) return Ent.INTL_CITY_COUNTRY_JS[mappedCity];
   }
   // 国际城市 → 国家
   const intlCity = _firstMatch(kw, _reIntlCitiesG, Ent.INTL_CITY_COUNTRY_JS);
@@ -147,15 +150,17 @@ KC.Classifier = {};
   }
 
   function extractCity(kw, l1) {
-  // 先通过 POI 缩写映射查找城市（如"港迪"→香港）
-  const poiCity = _firstMatch(kw, _rePoiAbbrG, Ent.POI_ABBR_MAP);
-  if (poiCity) return poiCity;
+  // 先通过 POI 缩写映射查找城市（如"港迪"→香港），返回映射值而非匹配键
+  const poiAbbr = _firstMatch(kw, _rePoiAbbrG, Ent.POI_ABBR_MAP);
+  if (poiAbbr) return Ent.POI_ABBR_MAP[poiAbbr];
+  // 通过 POI-城市映射查找（如"鸟巢"→北京、"迪士尼"→上海）
+  const poiMatch = _firstMatch(kw, _rePoiCityG, Poi.POI_CITY_MAP_JS);
+  if (poiMatch) return Poi.POI_CITY_MAP_JS[poiMatch];
 
   if (['国际酒店','国际机票'].includes(l1)) {
   const intlCity = _firstMatch(kw, _reIntlCitiesG, Ent.INTL_CITY_COUNTRY_JS);
   if (intlCity) return intlCity;
-  const countryName = _firstMatch(kw, _reCountryNamesG, Ent.COUNTRY_MAP_JS);
-  if (countryName) return countryName;
+  // 国家名不是城市，不再作为城市返回（国家信息由 extractCountry 处理）
   return '';
   }
   if (l1 === '景区') {
@@ -366,7 +371,7 @@ KC.Classifier = {};
   C.hasIntlCity = hasIntlCity;
   C.extractCountry = extractCountry;
   C.extractCity = extractCity;
-})(KC.Classifier, KC.DictL1, KC.DictL2, KC.DictEntity, KC.RegexEngine);
+})(KC.Classifier, KC.DictL1, KC.DictL2, KC.DictEntity, KC.RegexEngine, KC.PoiCityMap);
 
 // ── 预编译所有词组正则（必须在所有词库定义之后执行） ──
 (function(Re, L1, L2, Ent) {
