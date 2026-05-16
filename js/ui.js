@@ -13,9 +13,10 @@ KC.UI.L1_META = {
   '国际机票': { cls: 'flight-intl', color: '#f59e0b', pct: 0 },
   '景区': { cls: 'scenic', color: '#ef4444', pct: 0 },
   '火车票': { cls: 'train', color: '#ec4899', pct: 0 },
+  '公共': { cls: 'public', color: '#06b6d4', pct: 0 },
   '待确认': { cls: 'unclassified', color: '#9ca3af', pct: 0 },
 };
-KC.UI.L1_ORDER = ['国内酒店','国内机票','国际酒店','国际机票','景区','火车票','待确认'];
+KC.UI.L1_ORDER = ['国内酒店','国内机票','国际酒店','国际机票','景区','火车票','公共','待确认'];
 KC.UI.L2_COLORS = ['#1a73e8','#10b981','#8b5cf6','#f59e0b','#ef4444','#ec4899','#0d9488','#f97316','#6366f1','#84cc16','#06b6d4','#e11d48'];
 
 // 局部别名（函数内裸引用 → 命名空间属性的快捷方式）

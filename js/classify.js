@@ -186,8 +186,11 @@ KC.Classifier = {};
   const isIntl = isInternational(kw);
   let l1, l2;
 
-  // 规则1：火车票特征词 + 酒店意图 → 酒店
-  if (hasAny(kw, L1.TRAIN_KEYWORDS) && hasAny(kw, L1.HOTEL_INTENT_IN_TRAIN)) {
+  // 规则0：公共业务线词（跨业务线产品/工具/平台词） → 公共
+  if (hasAny(kw, L1.PUBLIC_KEYWORDS)) {
+  l1 = '公共'; l2 = _l2_public(kw);
+  }
+  else if (hasAny(kw, L1.TRAIN_KEYWORDS) && hasAny(kw, L1.HOTEL_INTENT_IN_TRAIN)) {
   l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
   }
   // 规则2：场站词 + 酒店词 → 酒店
@@ -349,6 +352,12 @@ KC.Classifier = {};
   return '景点词';
   }
 
+  function _l2_public(kw) {
+  if (hasAny(kw, L1.TC_BRANDS)) return '品牌词（同程）';
+  if (hasAny(kw, L1.COMPETITOR_BRANDS)) return '竞品词';
+  return '通用词';
+  }
+
   // ── 公共 API ──
   C.classify = classify;
   C.hasAny = hasAny;
@@ -370,6 +379,7 @@ KC.Classifier = {};
   L1.FLIGHT_KEYWORDS, L1.FLIGHT_BUSINESS_TERMS, L1.TRAIN_KEYWORDS, L1.SCENIC_FEATURE_WORDS,
   L1.FESTIVAL_KEYWORDS, L1.HOTEL_INTENT_IN_TRAIN, L1.INTL_SCENE_WORDS,
   L1.INTL_SCENIC_WORDS, L1.DESTINATION_NAMES, L1.GENERIC_TRAVEL_INTENT,
+  L1.PUBLIC_KEYWORDS,
   L1.INTERNATIONAL_KEYWORDS, Ent.INTL_CITIES_JS, L1.CITIES,
   L2.PRICE_SENSITIVE, L2.PREMIUM_QUALITY, L2.GEO_LOCATION, L2.URGENT_NEED, L2.TRAVEL_GUIDE,
   L2.ALL_CORE_SIGNALS, L2.PRICE_COMPARE, L2.QUERY_NAV, L2.URGENT_FLIGHT, L2.CROWD_FLIGHT,
