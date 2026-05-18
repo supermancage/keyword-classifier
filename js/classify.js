@@ -185,9 +185,33 @@ KC.Classifier = {};
   return '';
   }
 
+  function extractZone(city, l1) {
+  if (!city) return '';
+  // 国际业务线：港澳台城市查分区映射，其他国际城市不分区
+  if (['国际酒店','国际机票'].includes(l1)) {
+  if (['香港','澳门','台北','高雄','台南','台中','花莲','九份'].includes(city)) {
+  return Ent.CITY_ZONE_JS[city] || '';
+  }
+  return '';
+  }
+  return Ent.CITY_ZONE_JS[city] || '';
+  }
+
+  function extractTier(city, l1) {
+  if (!city) return '';
+  // 国际业务线：港澳台城市查等级映射，其他国际城市不分级
+  if (['国际酒店','国际机票'].includes(l1)) {
+  if (['香港','澳门','台北','高雄','台南','台中','花莲','九份'].includes(city)) {
+  return Ent.CITY_TIER_JS[city] || '';
+  }
+  return '';
+  }
+  return Ent.CITY_TIER_JS[city] || '';
+  }
+
   function classify(kw) {
   kw = String(kw).trim();
-  if (!kw) return { kw, l1: '', l2: '', country: '', city: '' };
+  if (!kw) return { kw, l1: '', l2: '', country: '', city: '', zone: '', tier: '' };
   const isIntl = isInternational(kw);
   let l1, l2;
 
@@ -281,7 +305,9 @@ KC.Classifier = {};
 
   const country = extractCountry(kw, l1);
   const city = extractCity(kw, l1);
-  return { kw, l1, l2, country, city };
+  const zone = extractZone(city, l1);
+  const tier = extractTier(city, l1);
+  return { kw, l1, l2, country, city, zone, tier };
   }
 
   function _l2_hotel(kw, isIntl) {
@@ -371,6 +397,8 @@ KC.Classifier = {};
   C.hasIntlCity = hasIntlCity;
   C.extractCountry = extractCountry;
   C.extractCity = extractCity;
+  C.extractZone = extractZone;
+  C.extractTier = extractTier;
 })(KC.Classifier, KC.DictL1, KC.DictL2, KC.DictEntity, KC.RegexEngine, KC.PoiCityMap);
 
 // ── 预编译所有词组正则（必须在所有词库定义之后执行） ──

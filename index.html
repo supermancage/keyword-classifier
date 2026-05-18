@@ -281,6 +281,14 @@
           <select class="filter-select" id="filter-city" onchange="renderTable(1)">
             <option value="">全部城市</option>
           </select>
+          <span class="filter-label" style="margin-left:12px;">分区:</span>
+          <select class="filter-select" id="filter-zone" onchange="onZoneTierChange()">
+            <option value="">全部分区</option>
+          </select>
+          <span class="filter-label" style="margin-left:12px;">等级:</span>
+          <select class="filter-select" id="filter-tier" onchange="onZoneTierChange()">
+            <option value="">全部等级</option>
+          </select>
         </div>
         <div class="filter-row">
           <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="clearFilters()">🗑 清除筛选</button>
@@ -297,6 +305,8 @@
               <th>二级分类</th>
               <th>国家</th>
               <th>城市</th>
+              <th>分区</th>
+              <th>等级</th>
               <th>花费</th>
               <th>曝光</th>
               <th>点击</th>

@@ -156,21 +156,30 @@ function initFilters() {
   const l1s = [...new Set(allResults.map(r => r.l1).filter(Boolean))].sort();
   l1Tags.innerHTML = '<span class="filter-tag active" data-value="" onclick="selectFilter(this, \'l1\')">全部</span>' +
     l1s.map(l1 => `<span class="filter-tag" data-value="${l1}" onclick="selectFilter(this, 'l1')">${l1}</span>`).join('');
-  
+
   // 二级分类筛选器 - 初始显示全部
   updateL2FilterTags('');
-  
+
   // 国家下拉
   const countrySelect = document.getElementById('filter-country');
   const countries = [...new Set(allResults.map(r => r.country).filter(Boolean))].sort();
   countrySelect.innerHTML = '<option value="">全部国家</option>' +
     countries.map(c => `<option value="${c}">${c}</option>`).join('');
-  
-  // 城市下拉
-  const citySelect = document.getElementById('filter-city');
-  const cities = [...new Set(allResults.map(r => r.city).filter(Boolean))].sort();
-  citySelect.innerHTML = '<option value="">全部城市</option>' +
-    cities.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  // 城市下拉（级联：受分区/等级控制）
+  updateCityDropdown();
+
+  // 分区下拉
+  const zoneSelect = document.getElementById('filter-zone');
+  const zones = [...new Set(allResults.map(r => r.zone).filter(Boolean))].sort();
+  zoneSelect.innerHTML = '<option value="">全部分区</option>' +
+    zones.map(z => `<option value="${z}">${z}</option>`).join('');
+
+  // 等级下拉
+  const tierSelect = document.getElementById('filter-tier');
+  const tiers = [...new Set(allResults.map(r => r.tier).filter(Boolean))].sort();
+  tierSelect.innerHTML = '<option value="">全部等级</option>' +
+    tiers.map(t => `<option value="${t}">${t}</option>`).join('');
 }
 
 // 根据选中的一级分类更新二级分类标签
@@ -188,6 +197,28 @@ function updateL2FilterTags(selectedL1) {
   
   l2Tags.innerHTML = '<span class="filter-tag active" data-value="" onclick="selectFilter(this, \'l2\')">全部</span>' +
     l2s.map(l2 => `<span class="filter-tag" data-value="${l2}" onclick="selectFilter(this, 'l2')">${l2}</span>`).join('');
+}
+
+// 根据分区/等级筛选更新城市下拉
+function updateCityDropdown() {
+  const filterZone = document.getElementById('filter-zone')?.value || '';
+  const filterTier = document.getElementById('filter-tier')?.value || '';
+  let base = allResults;
+  if (filterZone) base = base.filter(r => r.zone === filterZone);
+  if (filterTier) base = base.filter(r => r.tier === filterTier);
+  const cities = [...new Set(base.map(r => r.city).filter(Boolean))].sort();
+  const citySelect = document.getElementById('filter-city');
+  const prevCity = citySelect?.value || '';
+  citySelect.innerHTML = '<option value="">全部城市</option>' +
+    cities.map(c => `<option value="${c}">${c}</option>`).join('');
+  // 恢复之前选中（如果还在列表中）
+  if (prevCity && cities.includes(prevCity)) citySelect.value = prevCity;
+}
+
+// 分区/等级变化时的级联处理
+function onZoneTierChange() {
+  updateCityDropdown();
+  renderTable(1);
 }
 
 function selectFilter(el, type) {
@@ -211,7 +242,11 @@ function clearFilters() {
   // 重置二级分类标签为全部
   updateL2FilterTags('');
   document.getElementById('filter-country').value = '';
+  document.getElementById('filter-zone').value = '';
+  document.getElementById('filter-tier').value = '';
   document.getElementById('filter-city').value = '';
+  // 重建城市下拉（无分区/等级限制）
+  updateCityDropdown();
   renderTable(1);
 }
 
@@ -428,13 +463,17 @@ function renderTable(page) {
   const filterL2 = document.querySelector('#filter-l2-tags .active')?.dataset.value || '';
   const filterCountry = document.getElementById('filter-country').value;
   const filterCity = document.getElementById('filter-city').value;
-  
+  const filterZone = document.getElementById('filter-zone').value;
+  const filterTier = document.getElementById('filter-tier').value;
+
   filteredResults = allResults.filter(r => {
     if (search && !r.kw.toLowerCase().includes(search)) return false;
     if (filterL1 && r.l1 !== filterL1) return false;
     if (filterL2 && r.l2 !== filterL2) return false;
     if (filterCountry && r.country !== filterCountry) return false;
     if (filterCity && r.city !== filterCity) return false;
+    if (filterZone && r.zone !== filterZone) return false;
+    if (filterTier && r.tier !== filterTier) return false;
     return true;
   });
   currentPage = page;
@@ -455,6 +494,8 @@ function renderTable(page) {
       <td><span class="l2-tag">${r.l2}</span></td>
       <td style="color:#6366f1;font-weight:500">${r.country||'-'}</td>
       <td style="color:#059669;font-weight:500">${r.city||'-'}</td>
+      <td style="color:#6366f1;font-weight:500">${r.zone||'-'}</td>
+      <td style="color:#f59e0b;font-weight:500">${r.tier||'-'}</td>
       <td class="num" style="color:#ef4444">${r.cost ? '¥' + r.cost.toLocaleString() : '-'}</td>
       <td class="num" style="color:#3b82f6">${r.impression ? r.impression.toLocaleString() : '-'}</td>
       <td class="num" style="color:#10b981">${r.click ? r.click.toLocaleString() : '-'}</td>
@@ -487,12 +528,12 @@ function escHtml(s) {
 }
 
 function exportCSV() {
-  const rows = [['关键词','一级分类','二级分类','国家','城市','花费','曝光量','点击量','CTR','CPC']];
+  const rows = [['关键词','一级分类','二级分类','国家','城市','分区','等级','花费','曝光量','点击量','CTR','CPC']];
   filteredResults.forEach(r => {
     const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
     const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
     const kw = r.kw.replace(/[\r\n,]/g, ' ');
-    rows.push([kw, r.l1, r.l2, r.country, r.city, r.cost, r.impression, r.click, ctr, cpc]);
+    rows.push([kw, r.l1, r.l2, r.country, r.city, r.zone, r.tier, r.cost, r.impression, r.click, ctr, cpc]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   downloadFile('\ufeff' + csv, '关键词分类结果.csv', 'text/csv;charset=utf-8');
