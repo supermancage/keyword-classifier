@@ -69,6 +69,7 @@ KC.DictEntity = {};
   '伊斯坦布尔':'土耳其','圣托里尼':'希腊',
   '暹罗天地':'泰国','暹罗':'泰国',
   '亚庇':'马来西亚','明洞':'韩国',
+  '香港':'中国','澳门':'中国',
   };
 
   E.INTL_CITIES_JS = Object.keys(E.INTL_CITY_COUNTRY_JS).sort((a,b) => b.length - a.length);
