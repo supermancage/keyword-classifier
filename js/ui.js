@@ -942,35 +942,36 @@ function renderGeoAnalysis() {
 function renderGeoCountryChart(countryData) {
   if (geoCharts.country) geoCharts.country.destroy();
   var sorted = Object.entries(countryData).sort(function(a, b) { return b[1] - a[1]; });
-  var total = sorted.reduce(function(sum, item) { return sum + item[1]; }, 0);
   var labels = sorted.map(function(item) { return item[0]; });
-  var values = sorted.map(function(item) { return total > 0 ? (item[1] / total * 100) : 0; });
+  var values = sorted.map(function(item) { return item[1]; });
 
   geoCharts.country = new Chart(document.getElementById('chart-geo-country'), {
-    type: 'bar',
+    type: 'pie',
     data: {
       labels: labels,
       datasets: [{
-        label: '占比',
         data: values,
-        backgroundColor: '#3b82f6',
-        borderRadius: 4
+        backgroundColor: [
+          '#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6',
+          '#ec4899','#06b6d4','#f97316','#84cc16','#6366f1',
+          '#14b8a6','#e11d48','#a855f7','#0ea5e9','#d946ef'
+        ]
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
         tooltip: {
           callbacks: {
-            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+            label: function(ctx) {
+              var total = ctx.dataset.data.reduce(function(s, v) { return s + v; }, 0);
+              var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+              return ' ' + ctx.label + ': ' + pct + '%';
+            }
           }
         }
-      },
-      scales: {
-        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
-        x: { ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 } }
       }
     }
   });
@@ -980,41 +981,40 @@ function renderGeoRegionChart(regionData) {
   if (geoCharts.region) geoCharts.region.destroy();
   // 按固定顺序展示
   var labels = [];
-  var rawValues = [];
+  var values = [];
   GEO_REGION_ORDER.forEach(function(region) {
     if (regionData[region] !== undefined) {
       labels.push(region);
-      rawValues.push(regionData[region]);
+      values.push(regionData[region]);
     }
   });
-  var total = rawValues.reduce(function(sum, v) { return sum + v; }, 0);
-  var values = rawValues.map(function(v) { return total > 0 ? (v / total * 100) : 0; });
 
   geoCharts.region = new Chart(document.getElementById('chart-geo-region'), {
-    type: 'bar',
+    type: 'pie',
     data: {
       labels: labels,
       datasets: [{
-        label: '占比',
         data: values,
-        backgroundColor: '#3b82f6',
-        borderRadius: 4
+        backgroundColor: [
+          '#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6',
+          '#ec4899','#06b6d4','#f97316'
+        ]
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
         tooltip: {
           callbacks: {
-            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+            label: function(ctx) {
+              var total = ctx.dataset.data.reduce(function(s, v) { return s + v; }, 0);
+              var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+              return ' ' + ctx.label + ': ' + pct + '%';
+            }
           }
         }
-      },
-      scales: {
-        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
-        x: { ticks: { font: { size: 11 } } }
       }
     }
   });
@@ -1024,41 +1024,40 @@ function renderGeoTierChart(tierData) {
   if (geoCharts.tier) geoCharts.tier.destroy();
   // 按固定顺序展示
   var labels = [];
-  var rawValues = [];
+  var values = [];
   GEO_TIER_ORDER.forEach(function(tier) {
     if (tierData[tier] !== undefined) {
       labels.push(tier);
-      rawValues.push(tierData[tier]);
+      values.push(tierData[tier]);
     }
   });
-  var total = rawValues.reduce(function(sum, v) { return sum + v; }, 0);
-  var values = rawValues.map(function(v) { return total > 0 ? (v / total * 100) : 0; });
 
   geoCharts.tier = new Chart(document.getElementById('chart-geo-tier'), {
-    type: 'bar',
+    type: 'pie',
     data: {
       labels: labels,
       datasets: [{
-        label: '占比',
         data: values,
-        backgroundColor: '#3b82f6',
-        borderRadius: 4
+        backgroundColor: [
+          '#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6',
+          '#ec4899','#06b6d4'
+        ]
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 8 } },
         tooltip: {
           callbacks: {
-            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+            label: function(ctx) {
+              var total = ctx.dataset.data.reduce(function(s, v) { return s + v; }, 0);
+              var pct = total > 0 ? (ctx.parsed / total * 100).toFixed(1) : 0;
+              return ' ' + ctx.label + ': ' + pct + '%';
+            }
           }
         }
-      },
-      scales: {
-        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
-        x: { ticks: { font: { size: 11 } } }
       }
     }
   });
