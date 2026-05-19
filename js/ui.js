@@ -821,10 +821,10 @@ function renderEfficiencyAnalysis() {
 var geoSelectedL1 = new Set();
 var geoCharts = {};
 
-// 区域固定顺序
-var GEO_REGION_ORDER = ['华东','华南','华北','华中','西南','西北','东北','海外','未识别'];
-// 城市等级固定顺序
-var GEO_TIER_ORDER = ['一线城市','新一线城市','二线城市','三线城市','四线城市','五线城市','海外城市','未识别'];
+// 区域固定顺序（去除"未识别"）
+var GEO_REGION_ORDER = ['华东','华南','华北','华中','西南','西北','东北','海外'];
+// 城市等级固定顺序（去除"未识别"）
+var GEO_TIER_ORDER = ['一线城市','新一线城市','二线城市','三线城市','四线城市','五线城市','海外城市'];
 
 function initGeoFilters() {
   // 获取所有非空、非"待确认"的业务线
@@ -889,36 +889,33 @@ function calculateGeoMetrics() {
 
     var value = r[metric] || 0;
 
-    // 1. 国家分布
-    var country = r.country || '未识别';
-    if (country === '') country = '未识别';
+    // 1. 国家分布（跳过无国家信息的数据）
+    var country = r.country;
+    if (!country || country === '') return; // 跳过未识别
     if (!data.country[country]) data.country[country] = 0;
     data.country[country] += value;
 
-    // 2. 区域分布
-    var region = '未识别';
+    // 2. 区域分布（跳过未识别的数据）
+    var region = null;
     if (r.country !== '中国' && r.city) {
       region = '海外';
     } else if (r.city && CITY_REGION_MAP[r.city]) {
       region = CITY_REGION_MAP[r.city];
-    } else if (r.country === '中国' && !r.city) {
-      region = '未识别';
-    } else if (r.city) {
-      region = '未识别';
     }
-    if (!data.region[region]) data.region[region] = 0;
-    data.region[region] += value;
+    // 无法识别区域的数据跳过
+    if (region !== null) {
+      if (!data.region[region]) data.region[region] = 0;
+      data.region[region] += value;
+    }
 
-    // 3. 城市等级分布
+    // 3. 城市等级分布（跳过未识别的数据）
     var tier = null;
     if (r.country !== '中国' && r.city) {
       tier = '海外城市';
     } else if (r.city && CITY_TIER_MAP[r.city]) {
       tier = CITY_TIER_MAP[r.city];
-    } else if (r.city) {
-      tier = '未识别';
     }
-    // city为空时不参与城市等级统计
+    // 无法识别等级的数据跳过
     if (tier !== null) {
       if (!data.tier[tier]) data.tier[tier] = 0;
       data.tier[tier] += value;
@@ -945,15 +942,16 @@ function renderGeoAnalysis() {
 function renderGeoCountryChart(countryData) {
   if (geoCharts.country) geoCharts.country.destroy();
   var sorted = Object.entries(countryData).sort(function(a, b) { return b[1] - a[1]; });
+  var total = sorted.reduce(function(sum, item) { return sum + item[1]; }, 0);
   var labels = sorted.map(function(item) { return item[0]; });
-  var values = sorted.map(function(item) { return item[1]; });
+  var values = sorted.map(function(item) { return total > 0 ? (item[1] / total * 100) : 0; });
 
   geoCharts.country = new Chart(document.getElementById('chart-geo-country'), {
     type: 'bar',
     data: {
       labels: labels,
       datasets: [{
-        label: '数值',
+        label: '占比',
         data: values,
         backgroundColor: '#3b82f6',
         borderRadius: 4
@@ -963,10 +961,15 @@ function renderGeoCountryChart(countryData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+          }
+        }
       },
       scales: {
-        y: { beginAtZero: true },
+        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
         x: { ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 } }
       }
     }
@@ -977,20 +980,22 @@ function renderGeoRegionChart(regionData) {
   if (geoCharts.region) geoCharts.region.destroy();
   // 按固定顺序展示
   var labels = [];
-  var values = [];
+  var rawValues = [];
   GEO_REGION_ORDER.forEach(function(region) {
     if (regionData[region] !== undefined) {
       labels.push(region);
-      values.push(regionData[region]);
+      rawValues.push(regionData[region]);
     }
   });
+  var total = rawValues.reduce(function(sum, v) { return sum + v; }, 0);
+  var values = rawValues.map(function(v) { return total > 0 ? (v / total * 100) : 0; });
 
   geoCharts.region = new Chart(document.getElementById('chart-geo-region'), {
     type: 'bar',
     data: {
       labels: labels,
       datasets: [{
-        label: '数值',
+        label: '占比',
         data: values,
         backgroundColor: '#3b82f6',
         borderRadius: 4
@@ -1000,10 +1005,15 @@ function renderGeoRegionChart(regionData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+          }
+        }
       },
       scales: {
-        y: { beginAtZero: true },
+        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
         x: { ticks: { font: { size: 11 } } }
       }
     }
@@ -1014,20 +1024,22 @@ function renderGeoTierChart(tierData) {
   if (geoCharts.tier) geoCharts.tier.destroy();
   // 按固定顺序展示
   var labels = [];
-  var values = [];
+  var rawValues = [];
   GEO_TIER_ORDER.forEach(function(tier) {
     if (tierData[tier] !== undefined) {
       labels.push(tier);
-      values.push(tierData[tier]);
+      rawValues.push(tierData[tier]);
     }
   });
+  var total = rawValues.reduce(function(sum, v) { return sum + v; }, 0);
+  var values = rawValues.map(function(v) { return total > 0 ? (v / total * 100) : 0; });
 
   geoCharts.tier = new Chart(document.getElementById('chart-geo-tier'), {
     type: 'bar',
     data: {
       labels: labels,
       datasets: [{
-        label: '数值',
+        label: '占比',
         data: values,
         backgroundColor: '#3b82f6',
         borderRadius: 4
@@ -1037,10 +1049,15 @@ function renderGeoTierChart(tierData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+          }
+        }
       },
       scales: {
-        y: { beginAtZero: true },
+        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
         x: { ticks: { font: { size: 11 } } }
       }
     }
@@ -1051,15 +1068,16 @@ function renderGeoCityChart(cityData) {
   if (geoCharts.city) geoCharts.city.destroy();
   // 取Top20按数值降序
   var sorted = Object.entries(cityData).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 20);
+  var total = sorted.reduce(function(sum, item) { return sum + item[1]; }, 0);
   var labels = sorted.map(function(item) { return item[0]; });
-  var values = sorted.map(function(item) { return item[1]; });
+  var values = sorted.map(function(item) { return total > 0 ? (item[1] / total * 100) : 0; });
 
   geoCharts.city = new Chart(document.getElementById('chart-geo-city'), {
     type: 'bar',
     data: {
       labels: labels,
       datasets: [{
-        label: '数值',
+        label: '占比',
         data: values,
         backgroundColor: '#3b82f6',
         borderRadius: 4,
@@ -1070,10 +1088,15 @@ function renderGeoCityChart(cityData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ' ' + ctx.parsed.y.toFixed(1) + '%'; }
+          }
+        }
       },
       scales: {
-        y: { beginAtZero: true },
+        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
         x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 30 } }
       }
     }
