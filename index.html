@@ -15,7 +15,7 @@
   <!-- Header -->
   <header>
     <h1>🔍 智词引擎</h1>
-    <p>同程旅行业务线 · 一级 6 类 / 二级意图词包 · v5.0</p>
+    <p>同程旅行业务线 · 一级 7 类 / 二级意图词包 · v5.1</p>
   </header>
 
   <!-- 输入区 -->
@@ -318,6 +318,47 @@
         </table>
       </div>
       <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- 地理维度分析板块 -->
+    <div class="card mb-4 hidden" id="geo-analysis-section">
+      <div class="card-title">🌍 地理维度分析</div>
+
+      <!-- 业务线筛选 -->
+      <div class="geo-filter-row">
+        <span class="filter-label">业务线:</span>
+        <div class="filter-tags" id="geo-filter-l1"></div>
+      </div>
+
+      <!-- 指标切换 -->
+      <div class="geo-filter-row">
+        <span class="filter-label">指标:</span>
+        <select id="geo-metric-select" onchange="renderGeoAnalysis()">
+          <option value="cost">💰 消耗</option>
+          <option value="impression">👁 展示</option>
+          <option value="click">🖱 点击</option>
+        </select>
+      </div>
+
+      <!-- 2×2 图表网格 -->
+      <div class="geo-charts-grid">
+        <div class="geo-chart-card">
+          <h3>🌏 国家分布</h3>
+          <div class="chart-wrap"><canvas id="chart-geo-country"></canvas></div>
+        </div>
+        <div class="geo-chart-card">
+          <h3>📍 区域分布</h3>
+          <div class="chart-wrap"><canvas id="chart-geo-region"></canvas></div>
+        </div>
+        <div class="geo-chart-card">
+          <h3>🏙 城市等级分布</h3>
+          <div class="chart-wrap"><canvas id="chart-geo-tier"></canvas></div>
+        </div>
+        <div class="geo-chart-card">
+          <h3>🏢 城市 TOP20</h3>
+          <div class="chart-wrap"><canvas id="chart-geo-city"></canvas></div>
+        </div>
+      </div>
     </div>
 
     <!-- 词包生成器 -->

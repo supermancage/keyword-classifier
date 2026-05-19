@@ -38,6 +38,8 @@ KC.State = {
   charts: {},
   analysisCharts: {},
   crossCharts: {},
+  geoCharts: {},
+  geoSelectedL1: new Set(),
 };
 
 function switchTab(tab) {
@@ -303,6 +305,15 @@ function renderAll(results, ms) {
   // 渲染关键词词云
   try { initWcFilters(); } catch(e) { console.warn('词云筛选器初始化跳过:', e.message); }
   try { renderWordCloud(); } catch(e) { console.warn('词云渲染跳过:', e.message); }
+
+  // 渲染地理维度分析（有明确标签数据时显示）
+  var hasLabeledData = results.some(function(r) { return r.l1 && r.l1 !== '待确认'; });
+  if (hasLabeledData) {
+    document.getElementById('geo-analysis-section').classList.remove('hidden');
+    try { initGeoFilters(); renderGeoAnalysis(); } catch(e) { console.warn('地理分析渲染跳过:', e.message); }
+  } else {
+    document.getElementById('geo-analysis-section').classList.add('hidden');
+  }
 
   // 重置词包生成器
   pkgResults = [];
@@ -803,6 +814,272 @@ function renderEfficiencyAnalysis() {
   }).join('');
 }
 
+// ═══════════════════════════════════════════════════
+// 地理维度分析模块
+// ═══════════════════════════════════════════════════
+
+var geoSelectedL1 = new Set();
+var geoCharts = {};
+
+// 区域固定顺序
+var GEO_REGION_ORDER = ['华东','华南','华北','华中','西南','西北','东北','海外','未识别'];
+// 城市等级固定顺序
+var GEO_TIER_ORDER = ['一线城市','新一线城市','二线城市','三线城市','四线城市','五线城市','海外城市','未识别'];
+
+function initGeoFilters() {
+  // 获取所有非空、非"待确认"的业务线
+  var l1Set = new Set();
+  allResults.forEach(function(r) {
+    if (r.l1 && r.l1 !== '待确认') {
+      l1Set.add(r.l1);
+    }
+  });
+
+  // 默认全选
+  geoSelectedL1 = new Set(l1Set);
+
+  var container = document.getElementById('geo-filter-l1');
+  container.innerHTML = [...l1Set].sort().map(function(l1) {
+    return '<span class="filter-tag active" data-l1="' + l1 + '" onclick="toggleGeoL1(this)">' + l1 + '</span>';
+  }).join('');
+}
+
+function toggleGeoL1(el) {
+  var l1 = el.dataset.l1;
+  if (geoSelectedL1.has(l1)) {
+    geoSelectedL1.delete(l1);
+    el.classList.remove('active');
+  } else {
+    geoSelectedL1.add(l1);
+    el.classList.add('active');
+  }
+  renderGeoAnalysis();
+}
+
+function clearGeoFilters() {
+  var l1Set = new Set();
+  allResults.forEach(function(r) {
+    if (r.l1 && r.l1 !== '待确认') {
+      l1Set.add(r.l1);
+    }
+  });
+  geoSelectedL1 = new Set(l1Set);
+  document.querySelectorAll('#geo-filter-l1 .filter-tag').forEach(function(el) {
+    el.classList.add('active');
+  });
+  renderGeoAnalysis();
+}
+
+function calculateGeoMetrics() {
+  var metric = document.getElementById('geo-metric-select').value;
+  var data = {
+    country: {},   // 国家分布
+    region: {},    // 区域分布
+    tier: {},      // 城市等级分布
+    city: {}       // 城市TOP20
+  };
+
+  var CITY_TIER_MAP = KC.DictEntity.CITY_TIER_MAP;
+  var CITY_REGION_MAP = KC.DictEntity.CITY_REGION_MAP;
+
+  // 只分析有明确标签的数据
+  allResults.forEach(function(r) {
+    if (!r.l1 || r.l1 === '待确认') return;
+    if (!geoSelectedL1.has(r.l1)) return;
+
+    var value = r[metric] || 0;
+
+    // 1. 国家分布
+    var country = r.country || '未识别';
+    if (country === '') country = '未识别';
+    if (!data.country[country]) data.country[country] = 0;
+    data.country[country] += value;
+
+    // 2. 区域分布
+    var region = '未识别';
+    if (r.country !== '中国' && r.city) {
+      region = '海外';
+    } else if (r.city && CITY_REGION_MAP[r.city]) {
+      region = CITY_REGION_MAP[r.city];
+    } else if (r.country === '中国' && !r.city) {
+      region = '未识别';
+    } else if (r.city) {
+      region = '未识别';
+    }
+    if (!data.region[region]) data.region[region] = 0;
+    data.region[region] += value;
+
+    // 3. 城市等级分布
+    var tier = null;
+    if (r.country !== '中国' && r.city) {
+      tier = '海外城市';
+    } else if (r.city && CITY_TIER_MAP[r.city]) {
+      tier = CITY_TIER_MAP[r.city];
+    } else if (r.city) {
+      tier = '未识别';
+    }
+    // city为空时不参与城市等级统计
+    if (tier !== null) {
+      if (!data.tier[tier]) data.tier[tier] = 0;
+      data.tier[tier] += value;
+    }
+
+    // 4. 城市TOP20（有city且非空字符串）
+    if (r.city && r.city !== '') {
+      if (!data.city[r.city]) data.city[r.city] = 0;
+      data.city[r.city] += value;
+    }
+  });
+
+  return data;
+}
+
+function renderGeoAnalysis() {
+  var data = calculateGeoMetrics();
+  renderGeoCountryChart(data.country);
+  renderGeoRegionChart(data.region);
+  renderGeoTierChart(data.tier);
+  renderGeoCityChart(data.city);
+}
+
+function renderGeoCountryChart(countryData) {
+  if (geoCharts.country) geoCharts.country.destroy();
+  var sorted = Object.entries(countryData).sort(function(a, b) { return b[1] - a[1]; });
+  var labels = sorted.map(function(item) { return item[0]; });
+  var values = sorted.map(function(item) { return item[1]; });
+
+  geoCharts.country = new Chart(document.getElementById('chart-geo-country'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '数值',
+        data: values,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: { ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 } }
+      }
+    }
+  });
+}
+
+function renderGeoRegionChart(regionData) {
+  if (geoCharts.region) geoCharts.region.destroy();
+  // 按固定顺序展示
+  var labels = [];
+  var values = [];
+  GEO_REGION_ORDER.forEach(function(region) {
+    if (regionData[region] !== undefined) {
+      labels.push(region);
+      values.push(regionData[region]);
+    }
+  });
+
+  geoCharts.region = new Chart(document.getElementById('chart-geo-region'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '数值',
+        data: values,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderGeoTierChart(tierData) {
+  if (geoCharts.tier) geoCharts.tier.destroy();
+  // 按固定顺序展示
+  var labels = [];
+  var values = [];
+  GEO_TIER_ORDER.forEach(function(tier) {
+    if (tierData[tier] !== undefined) {
+      labels.push(tier);
+      values.push(tierData[tier]);
+    }
+  });
+
+  geoCharts.tier = new Chart(document.getElementById('chart-geo-tier'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '数值',
+        data: values,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function renderGeoCityChart(cityData) {
+  if (geoCharts.city) geoCharts.city.destroy();
+  // 取Top20按数值降序
+  var sorted = Object.entries(cityData).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 20);
+  var labels = sorted.map(function(item) { return item[0]; });
+  var values = sorted.map(function(item) { return item[1]; });
+
+  geoCharts.city = new Chart(document.getElementById('chart-geo-city'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '数值',
+        data: values,
+        backgroundColor: '#3b82f6',
+        borderRadius: 4,
+        barThickness: 14
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true },
+        x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 30 } }
+      }
+    }
+  });
+}
+
 // ── 文件拖拽 ──
 const dropzone = document.getElementById('dropzone');
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
@@ -1019,10 +1296,9 @@ function renderCrossSummaryCards(metrics) {
   ];
   
   document.getElementById('cross-summary-cards').innerHTML = cards.map(c => `
-    <div style="background:linear-gradient(135deg,${c.color}15,${c.color}08);border-radius:8px;padding:12px;text-align:center;border:1px solid ${c.color}30;"
-      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px ${c.color}20'" 
+    <div style="background:linear-gradient(135deg,${c.color}15,${c.color}08);border-radius:8px;padding:12px;text-align:center;border:1px solid ${c.color}30;transition:all .2s;"
+      onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px ${c.color}20'"
       onmouseout="this.style.transform='';this.style.boxShadow=''"
-      style="transition:all .2s"
     >
       <div style="font-size:20px;font-weight:700;color:${c.color};margin-bottom:4px;">${c.value}</div>
       <div style="font-size:11px;color:#6b7280;">${c.label}</div>

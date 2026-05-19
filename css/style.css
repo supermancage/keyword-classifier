@@ -77,6 +77,7 @@
     .l1-badge.flight-intl { background: #fef3c7; color: #92400e; }
     .l1-badge.scenic { background: #fee2e2; color: #991b1b; }
     .l1-badge.train { background: #fce7f3; color: #9d174d; }
+  .l1-badge.public { background: #cffafe; color: #0e7490; }
   .l1-badge.unclassified { background: #f3f4f6; color: #6b7280; }
 
     .l2-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #f3f4f6; color: var(--text-muted); }
@@ -159,4 +160,12 @@
     #pkg-section label:has(input:checked) { border-color: var(--primary); background: #e8f0fe; }
     #pkg-section label:has(input:disabled) { opacity: .7; }
     .pkg-kw-sample { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #6b7280; }
+
+    /* ── 地理维度分析 ── */
+    .geo-filter-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .geo-filter-row .filter-label { font-size: 12px; color: var(--text-muted); min-width: 50px; font-weight: 500; }
+    .geo-filter-row select { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--card); }
+    .geo-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .geo-chart-card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); padding: 16px; }
+    .geo-chart-card h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
   </style>

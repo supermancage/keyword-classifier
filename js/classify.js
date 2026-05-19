@@ -425,8 +425,6 @@ KC.Classifier = {};
 
 // ── 性能基准测试 ──
 KC.runBenchmark = function() {
-
-  function runBenchmark() {
   const testKws = [
   '北京酒店','三亚民宿','上海迪士尼酒店','东京机票','普吉岛度假村',
   '广州到北京机票','高铁抢票','九寨沟门票','曼谷酒店','港迪亲子游',
@@ -452,5 +450,4 @@ KC.runBenchmark = function() {
   console.log(`✅ 完成：${batch.length} 条耗时 ${totalMs}ms，平均 ${perKw}μs/条`);
   console.log(`📈 吞吐量：${(batch.length / (t1 - t0) * 1000).toFixed(0)} 条/秒`);
   return { total: totalMs + 'ms', perKw: perKw + 'μs', throughput: (batch.length / (t1 - t0) * 1000).toFixed(0) + ' 条/秒' };
-  }
 };
