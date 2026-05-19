@@ -1087,6 +1087,7 @@ function renderGeoCityChart(cityData) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
+        dataLabels: false,
         legend: { display: false },
         tooltip: {
           callbacks: {
