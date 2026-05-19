@@ -1113,7 +1113,7 @@ function renderGeoCityChart(cityData) {
         }
       },
       scales: {
-        y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v.toFixed(0) + '%'; } } },
+        y: { beginAtZero: true, ticks: { callback: function(v) { return v.toFixed(1) + '%'; } } },
         x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 30 } }
       }
     }
