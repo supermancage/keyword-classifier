@@ -1065,8 +1065,8 @@ function renderGeoTierChart(tierData) {
 
 function renderGeoCityChart(cityData) {
   if (geoCharts.city) geoCharts.city.destroy();
-  // 取Top20按数值降序
-  var sorted = Object.entries(cityData).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 20);
+  // 取Top50按数值降序
+  var sorted = Object.entries(cityData).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 50);
   var total = sorted.reduce(function(sum, item) { return sum + item[1]; }, 0);
   var labels = sorted.map(function(item) { return item[0]; });
   var values = sorted.map(function(item) { return total > 0 ? (item[1] / total * 100) : 0; });
@@ -1080,27 +1080,9 @@ function renderGeoCityChart(cityData) {
         data: values,
         backgroundColor: '#3b82f6',
         borderRadius: 4,
-        barThickness: 14
+        barThickness: 10
       }]
     },
-    plugins: [{
-      id: 'geoCityLabels',
-      afterDatasetsDraw: function(chart) {
-        var ctx = chart.ctx;
-        chart.data.datasets.forEach(function(dataset, i) {
-          var meta = chart.getDatasetMeta(i);
-          meta.data.forEach(function(bar, index) {
-            var value = dataset.data[index];
-            if (value > 0) {
-              ctx.fillStyle = '#374151';
-              ctx.font = '10px sans-serif';
-              ctx.textAlign = 'center';
-              ctx.fillText(value.toFixed(1) + '%', bar.x, bar.y - 4);
-            }
-          });
-        });
-      }
-    }],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -1114,7 +1096,7 @@ function renderGeoCityChart(cityData) {
       },
       scales: {
         y: { beginAtZero: true, ticks: { callback: function(v) { return v.toFixed(1) + '%'; } } },
-        x: { ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 30 } }
+        x: { ticks: { font: { size: 9 }, maxRotation: 60, minRotation: 45 } }
       }
     }
   });
