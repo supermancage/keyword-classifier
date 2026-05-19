@@ -1083,26 +1083,6 @@ function renderGeoCityChart(cityData) {
         barThickness: 10
       }]
     },
-    plugins: [{
-      id: 'cityBarLabels',
-      afterDatasetsDraw: function(chart) {
-        var ctx = chart.ctx;
-        chart.data.datasets.forEach(function(dataset, i) {
-          var meta = chart.getDatasetMeta(i);
-          meta.data.forEach(function(bar, index) {
-            var value = dataset.data[index];
-            if (value > 0) {
-              ctx.save();
-              ctx.fillStyle = '#374151';
-              ctx.font = 'bold 10px sans-serif';
-              ctx.textAlign = 'center';
-              ctx.fillText(value.toFixed(1) + '%', bar.x, bar.y - 5);
-              ctx.restore();
-            }
-          });
-        });
-      }
-    }],
     options: {
       responsive: true,
       maintainAspectRatio: false,
