@@ -370,7 +370,10 @@ const dataLabelsPlugin = {
         } else if (chart.config.type === 'bar') {
           // 柱状图：显示在柱子顶部
           ctx.fillStyle = '#1f2937';
-          ctx.fillText(label, pos.x, pos.y - 5);
+          const barLabel = chart.canvas && chart.canvas.id === 'chart-geo-city'
+            ? value.toFixed(1) + '%'
+            : label;
+          ctx.fillText(barLabel, pos.x, pos.y - 5);
         }
         
         ctx.restore();
