@@ -328,8 +328,6 @@ function renderAll(results, ms) {
 const dataLabelsPlugin = {
   id: 'dataLabels',
   afterDatasetsDraw(chart, args, options) {
-    // 跳过城市TOP50柱状图（该图表使用百分比Y轴，不需要数据标签）
-    if (chart.canvas && chart.canvas.id === 'chart-geo-city') return;
     const { ctx } = chart;
     chart.data.datasets.forEach((dataset, i) => {
       const meta = chart.getDatasetMeta(i);
