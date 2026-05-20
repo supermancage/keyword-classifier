@@ -369,8 +369,10 @@ const dataLabelsPlugin = {
           }
         } else if (chart.config.type === 'bar') {
           // 柱状图：显示在柱子顶部
+          const isGeoCity = chart.canvas && chart.canvas.id === 'chart-geo-city';
           ctx.fillStyle = '#1f2937';
-          const barLabel = chart.canvas && chart.canvas.id === 'chart-geo-city'
+          ctx.font = isGeoCity ? '9px Arial' : 'bold 11px Arial';
+          const barLabel = isGeoCity
             ? value.toFixed(1) + '%'
             : label;
           ctx.fillText(barLabel, pos.x, pos.y - 5);
