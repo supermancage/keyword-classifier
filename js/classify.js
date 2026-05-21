@@ -227,7 +227,8 @@ KC.Classifier = {};
   l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
   }
   // 规则3：航班/机票/航司词/机票业务词 → 机票
-  else if (hasAny(kw, L1.FLIGHT_KEYWORDS) || hasAny(kw, L1.AIRLINE_BRANDS) || hasAny(kw, L1.FLIGHT_BUSINESS_TERMS)) {
+  // 但如果同时包含火车票信号（如12306积分兑换车票、高铁座位图），优先归火车票
+  else if (!hasAny(kw, L1.TRAIN_KEYWORDS) && (hasAny(kw, L1.FLIGHT_KEYWORDS) || hasAny(kw, L1.AIRLINE_BRANDS) || hasAny(kw, L1.FLIGHT_BUSINESS_TERMS))) {
   l1 = isIntl ? '国际机票' : '国内机票'; l2 = _l2_flight(kw, isIntl);
   }
   // 规则4：火车票特征词 → 火车票
