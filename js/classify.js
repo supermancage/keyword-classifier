@@ -226,18 +226,19 @@ KC.Classifier = {};
   else if (hasAny(kw, L1.STATION_KEYWORDS) && hasAny(kw, L1.HOTEL_KEYWORDS)) {
   l1 = isIntl ? '国际酒店' : '国内酒店'; l2 = _l2_hotel(kw, isIntl);
   }
+  // 规则5b：连锁酒店品牌 → 国内酒店
+  // （优先于机票/火车票规则，避免 如家会员 等被 FLIGHT_BUSINESS_TERMS 误归机票）
+  else if (hasAny(kw, L1.HOTEL_CHAINS)) {
+  l1 = '国内酒店'; l2 = '连锁酒店词';
+  }
   // 规则3：航班/机票/航司词/机票业务词 → 机票
-  // 但如果同时包含火车票信号（如12306积分兑换车票、高铁座位图），优先归火车票
-  else if (!hasAny(kw, L1.TRAIN_KEYWORDS) && (hasAny(kw, L1.FLIGHT_KEYWORDS) || hasAny(kw, L1.AIRLINE_BRANDS) || hasAny(kw, L1.FLIGHT_BUSINESS_TERMS))) {
+  // 但如果同时包含火车票/酒店信号，优先归对应业务线
+  else if (!hasAny(kw, L1.TRAIN_KEYWORDS) && !hasAny(kw, L1.HOTEL_KEYWORDS) && (hasAny(kw, L1.FLIGHT_KEYWORDS) || hasAny(kw, L1.AIRLINE_BRANDS) || hasAny(kw, L1.FLIGHT_BUSINESS_TERMS))) {
   l1 = isIntl ? '国际机票' : '国内机票'; l2 = _l2_flight(kw, isIntl);
   }
   // 规则4：火车票特征词 → 火车票
   else if (hasAny(kw, L1.TRAIN_KEYWORDS)) {
   l1 = '火车票'; l2 = _l2_train(kw);
-  }
-  // 规则5b：连锁酒店品牌 → 国内酒店（必须在酒店词判断之前，避免维也纳/香格里拉误归国际）
-  else if (hasAny(kw, L1.HOTEL_CHAINS)) {
-  l1 = '国内酒店'; l2 = '连锁酒店词';
   }
   // 规则5：酒店词 → 酒店
   else if (hasAny(kw, L1.HOTEL_KEYWORDS)) {
