@@ -48,7 +48,7 @@
     .upload-row input[type="file"] { font-size: 13px; }
     .file-info { font-size: 13px; color: var(--text-muted); }
 
-    .col-config { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .col-config { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
     .col-config label { font-size: 12px; color: var(--text-muted); }
     .col-config input { width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
 

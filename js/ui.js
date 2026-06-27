@@ -30,6 +30,8 @@ let allResults = [];
 let filteredResults = [];
 let currentPage = 1;
 let charts = {};
+let analysisDim = 'l1';   // 分析板块分组维度: 'l1' 或 'adBizLine'
+let crossDim = 'l1';       // 交叉分析维度: 'l1' 或 'adBizLine'
 
 KC.State = {
   allResults: [],
@@ -99,13 +101,17 @@ async function runClassify() {
       const colCost = parseInt(document.getElementById('col-cost').value) || 0;
       const colImp = parseInt(document.getElementById('col-impression').value) || 0;
       const colClick = parseInt(document.getElementById('col-click').value) || 0;
+      const colAppInteract = parseInt(document.getElementById('col-app-interact').value) || 0;
+      const colAppOpen = parseInt(document.getElementById('col-app-open').value) || 0;
+      const colAppOrder = parseInt(document.getElementById('col-app-order').value) || 0;
+      const colAdBizLine = parseInt(document.getElementById('col-ad-biz-line').value) || 0;
       const rowStart = parseInt(document.getElementById('row-start').value) || 1;
       const range = XLSX.utils.decode_range(ws['!ref']);
       for (let r = range.s.r + rowStart - 1; r <= range.e.r; r++) {
         const cell = ws[XLSX.utils.encode_cell({ r, c: col - 1 })];
         const val = cell ? (typeof cell.v === 'number' ? String(cell.v) : String(cell.v || '')) : '';
         if (val.trim()) {
-          const item = { kw: val.trim(), cost: 0, impression: 0, click: 0 };
+          const item = { kw: val.trim(), cost: 0, impression: 0, click: 0, appInteract: 0, appOpen: 0, appOrder: 0, adBizLine: '' };
           if (colCost > 0) {
             const costCell = ws[XLSX.utils.encode_cell({ r, c: colCost - 1 })];
             item.cost = costCell ? (parseFloat(costCell.v) || 0) : 0;
@@ -117,6 +123,22 @@ async function runClassify() {
           if (colClick > 0) {
             const clickCell = ws[XLSX.utils.encode_cell({ r, c: colClick - 1 })];
             item.click = clickCell ? (parseInt(clickCell.v) || 0) : 0;
+          }
+          if (colAppInteract > 0) {
+            const aiCell = ws[XLSX.utils.encode_cell({ r, c: colAppInteract - 1 })];
+            item.appInteract = aiCell ? (parseFloat(aiCell.v) || 0) : 0;
+          }
+          if (colAppOpen > 0) {
+            const aoCell = ws[XLSX.utils.encode_cell({ r, c: colAppOpen - 1 })];
+            item.appOpen = aoCell ? (parseFloat(aoCell.v) || 0) : 0;
+          }
+          if (colAppOrder > 0) {
+            const aordCell = ws[XLSX.utils.encode_cell({ r, c: colAppOrder - 1 })];
+            item.appOrder = aordCell ? (parseFloat(aordCell.v) || 0) : 0;
+          }
+          if (colAdBizLine > 0) {
+            const abCell = ws[XLSX.utils.encode_cell({ r, c: colAdBizLine - 1 })];
+            item.adBizLine = abCell ? String(abCell.v || '').trim() : '';
           }
           raw.push(item);
         }
@@ -137,10 +159,18 @@ async function runClassify() {
       result.cost = item.cost || 0;
       result.impression = item.impression || 0;
       result.click = item.click || 0;
+      result.appInteract = item.appInteract || 0;
+      result.appOpen = item.appOpen || 0;
+      result.appOrder = item.appOrder || 0;
+      result.adBizLine = item.adBizLine || '';
     } else {
       result.cost = 0;
       result.impression = 0;
       result.click = 0;
+      result.appInteract = 0;
+      result.appOpen = 0;
+      result.appOrder = 0;
+      result.adBizLine = '';
     }
     return result;
   });
@@ -182,6 +212,12 @@ function initFilters() {
   const tiers = [...new Set(allResults.map(r => r.tier).filter(Boolean))].sort();
   tierSelect.innerHTML = '<option value="">全部等级</option>' +
     tiers.map(t => `<option value="${t}">${t}</option>`).join('');
+
+  // 投放素材业务线下拉
+  const adBizSelect = document.getElementById('filter-ad-biz-line');
+  const adBizs = [...new Set(allResults.map(r => r.adBizLine).filter(Boolean))].sort();
+  adBizSelect.innerHTML = '<option value="">全部</option>' +
+    adBizs.map(ab => `<option value="${escHtml(ab)}">${escHtml(ab)}</option>`).join('');
 }
 
 // 根据选中的一级分类更新二级分类标签
@@ -247,6 +283,8 @@ function clearFilters() {
   document.getElementById('filter-zone').value = '';
   document.getElementById('filter-tier').value = '';
   document.getElementById('filter-city').value = '';
+  const adBizSelect = document.getElementById('filter-ad-biz-line');
+  if (adBizSelect) adBizSelect.value = '';
   // 重建城市下拉（无分区/等级限制）
   updateCityDropdown();
   renderTable(1);
@@ -258,6 +296,15 @@ function renderAll(results, ms) {
   initFilters();
   currentPage = 1;
   document.getElementById('search-box').value = '';
+
+  // 重置分析维度
+  analysisDim = 'l1';
+  crossDim = 'l1';
+  const dimSelect = document.getElementById('analysis-dim-select');
+  if (dimSelect) dimSelect.value = 'l1';
+  const crossDimSelect = document.getElementById('cross-dim-select');
+  if (crossDimSelect) crossDimSelect.value = 'l1';
+  updateAnalysisHeaders();
 
   // 统计
   document.getElementById('stat-total').textContent = results.length.toLocaleString();
@@ -291,9 +338,14 @@ function renderAll(results, ms) {
 
   // 渲染数据分析（如果有花费数据）
   const hasCostData = results.some(r => r.cost > 0);
+  const hasAppData = results.some(r => (r.appInteract || 0) > 0 || (r.appOpen || 0) > 0 || (r.appOrder || 0) > 0);
   if (hasCostData) {
     document.getElementById('analysis-section').classList.remove('hidden');
     document.getElementById('cross-analysis-section').classList.remove('hidden');
+    // APP成本 Tab 显隐
+    document.querySelectorAll('[data-analysis="appInteract"], [data-analysis="appOpen"], [data-analysis="appOrder"]').forEach(btn => {
+      btn.style.display = hasAppData ? '' : 'none';
+    });
     try { renderCostAnalysis(); } catch(e) { console.warn('花费分析渲染跳过:', e.message); }
     initCrossFilters();
     try { renderCrossAnalysis(); } catch(e) { console.warn('交叉分析渲染跳过:', e.message); }
@@ -481,6 +533,7 @@ function renderTable(page) {
   const filterCity = document.getElementById('filter-city').value;
   const filterZone = document.getElementById('filter-zone').value;
   const filterTier = document.getElementById('filter-tier').value;
+  const filterAdBizLine = document.getElementById('filter-ad-biz-line')?.value || '';
 
   filteredResults = allResults.filter(r => {
     if (search && !r.kw.toLowerCase().includes(search)) return false;
@@ -490,6 +543,7 @@ function renderTable(page) {
     if (filterCity && r.city !== filterCity) return false;
     if (filterZone && r.zone !== filterZone) return false;
     if (filterTier && r.tier !== filterTier) return false;
+    if (filterAdBizLine && (r.adBizLine || '') !== filterAdBizLine) return false;
     return true;
   });
   currentPage = page;
@@ -512,6 +566,7 @@ function renderTable(page) {
       <td style="color:#059669;font-weight:500">${r.city||'-'}</td>
       <td style="color:#6366f1;font-weight:500">${r.zone||'-'}</td>
       <td style="color:#f59e0b;font-weight:500">${r.tier||'-'}</td>
+      <td style="color:#6366f1;font-weight:500">${r.adBizLine||'-'}</td>
       <td class="num" style="color:#ef4444">${r.cost ? '¥' + r.cost.toLocaleString() : '-'}</td>
       <td class="num" style="color:#3b82f6">${r.impression ? r.impression.toLocaleString() : '-'}</td>
       <td class="num" style="color:#10b981">${r.click ? r.click.toLocaleString() : '-'}</td>
@@ -544,12 +599,12 @@ function escHtml(s) {
 }
 
 function exportCSV() {
-  const rows = [['关键词','一级分类','二级分类','国家','城市','分区','等级','花费','曝光量','点击量','CTR','CPC']];
+  const rows = [['关键词','一级分类','二级分类','国家','城市','分区','等级','投放素材业务线','花费','曝光量','点击量','CTR','CPC']];
   filteredResults.forEach(r => {
     const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
     const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
     const kw = r.kw.replace(/[\r\n,]/g, ' ');
-    rows.push([kw, r.l1, r.l2, r.country, r.city, r.zone, r.tier, r.cost, r.impression, r.click, ctr, cpc]);
+    rows.push([kw, r.l1, r.l2, r.country, r.city, r.zone, r.tier, r.adBizLine || '', r.cost, r.impression, r.click, ctr, cpc]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   downloadFile('\ufeff' + csv, '关键词分类结果.csv', 'text/csv;charset=utf-8');
@@ -574,67 +629,115 @@ function showLoading(show) {
 
 let analysisCharts = {};
 
+// ── 维度辅助函数 ──
+function getDimHeader() {
+  return analysisDim === 'adBizLine' ? '投放素材业务线' : '一级分类';
+}
+
+function getDimColor(key) {
+  if (analysisDim === 'adBizLine') return '#6366f1';
+  return L1_META[key]?.color || '#999';
+}
+
+function renderDimBadge(key) {
+  if (analysisDim === 'adBizLine') {
+    return `<span class="l1-badge unclassified">${escHtml(key)}</span>`;
+  }
+  const meta = L1_META[key];
+  return `<span class="l1-badge ${meta?.cls || ''}">${escHtml(key)}</span>`;
+}
+
+function updateAnalysisHeaders() {
+  const header = getDimHeader();
+  document.querySelectorAll('.th-dim').forEach(el => { el.textContent = header; });
+}
+
+function switchAnalysisDim() {
+  analysisDim = document.getElementById('analysis-dim-select').value;
+  updateAnalysisHeaders();
+  const activeBtn = document.querySelector('[data-analysis].active');
+  if (activeBtn) switchAnalysisTab(activeBtn.dataset.analysis);
+}
+
 function switchAnalysisTab(tab) {
   document.querySelectorAll('[data-analysis]').forEach(btn => btn.classList.remove('active'));
   document.querySelector(`[data-analysis="${tab}"]`).classList.add('active');
   document.querySelectorAll('.analysis-content').forEach(el => el.classList.add('hidden'));
   document.getElementById(`analysis-${tab}`).classList.remove('hidden');
-  
+
   // 渲染对应图表
   if (tab === 'cost') renderCostAnalysis();
   else if (tab === 'impression') renderImpressionAnalysis();
   else if (tab === 'click') renderClickAnalysis();
   else if (tab === 'efficiency') renderEfficiencyAnalysis();
+  else if (tab === 'appInteract') renderAppInteractAnalysis();
+  else if (tab === 'appOpen') renderAppOpenAnalysis();
+  else if (tab === 'appOrder') renderAppOrderAnalysis();
 }
 
-function calculateMetrics() {
+function calculateMetrics(dim) {
+  dim = dim || analysisDim || 'l1';
   const metrics = {};
-  
-  // 按一级分类汇总
+
+  // 按维度汇总
   allResults.forEach(r => {
-    const l1 = r.l1 || '未分类';
-    if (!metrics[l1]) {
-      metrics[l1] = {
+    let groupKey;
+    if (dim === 'adBizLine') {
+      groupKey = r.adBizLine || '未标注';
+    } else {
+      groupKey = r.l1 || '未分类';
+    }
+    if (!metrics[groupKey]) {
+      metrics[groupKey] = {
         count: 0,
         cost: 0,
         impression: 0,
-        click: 0
+        click: 0,
+        appInteract: 0,
+        appOpen: 0,
+        appOrder: 0
       };
     }
-    metrics[l1].count++;
-    metrics[l1].cost += r.cost || 0;
-    metrics[l1].impression += r.impression || 0;
-    metrics[l1].click += r.click || 0;
+    metrics[groupKey].count++;
+    metrics[groupKey].cost += r.cost || 0;
+    metrics[groupKey].impression += r.impression || 0;
+    metrics[groupKey].click += r.click || 0;
+    metrics[groupKey].appInteract += r.appInteract || 0;
+    metrics[groupKey].appOpen += r.appOpen || 0;
+    metrics[groupKey].appOrder += r.appOrder || 0;
   });
-  
+
   // 计算衍生指标
-  Object.keys(metrics).forEach(l1 => {
-    const m = metrics[l1];
+  Object.keys(metrics).forEach(key => {
+    const m = metrics[key];
     m.avgCost = m.count > 0 ? m.cost / m.count : 0;
     m.avgImpression = m.count > 0 ? m.impression / m.count : 0;
     m.avgClick = m.count > 0 ? m.click / m.count : 0;
     m.ctr = m.impression > 0 ? (m.click / m.impression * 100) : 0;
     m.cpc = m.click > 0 ? (m.cost / m.click) : 0;
+    m.appInteractCost = m.appInteract > 0 ? (m.cost / m.appInteract) : 0;
+    m.appOpenCost = m.appOpen > 0 ? (m.cost / m.appOpen) : 0;
+    m.appOrderCost = m.appOrder > 0 ? (m.cost / m.appOrder) : 0;
   });
-  
+
   return metrics;
 }
 
 function renderCostAnalysis() {
-  const metrics = calculateMetrics();
-  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].cost - metrics[a].cost);
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].cost - metrics[a].cost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
-  
+
   // 渲染图表
   if (analysisCharts.cost) analysisCharts.cost.destroy();
   analysisCharts.cost = new Chart(document.getElementById('chart-cost'), {
     type: 'bar',
     data: {
-      labels: l1s,
+      labels: keys,
       datasets: [{
         label: '花费',
-        data: l1s.map(l1 => metrics[l1].cost),
-        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        data: keys.map(k => metrics[k].cost),
+        backgroundColor: keys.map(k => getDimColor(k)),
         borderRadius: 5
       }]
     },
@@ -654,14 +757,14 @@ function renderCostAnalysis() {
       }
     }
   });
-  
+
   // 渲染表格
   const tbody = document.querySelector('#table-cost tbody');
-  tbody.innerHTML = l1s.map(l1 => {
-    const m = metrics[l1];
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
     const pct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
     return `<tr>
-      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td>${renderDimBadge(k)}</td>
       <td class="num">${m.count.toLocaleString()}</td>
       <td class="num" style="color:#ef4444;font-weight:600">¥${m.cost.toLocaleString()}</td>
       <td class="num">${pct}%</td>
@@ -674,20 +777,20 @@ function renderCostAnalysis() {
 }
 
 function renderImpressionAnalysis() {
-  const metrics = calculateMetrics();
-  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].impression - metrics[a].impression);
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].impression - metrics[a].impression);
   const totalImp = Object.values(metrics).reduce((sum, m) => sum + m.impression, 0);
-  
+
   // 渲染图表
   if (analysisCharts.impression) analysisCharts.impression.destroy();
   analysisCharts.impression = new Chart(document.getElementById('chart-impression'), {
     type: 'bar',
     data: {
-      labels: l1s,
+      labels: keys,
       datasets: [{
         label: '曝光量',
-        data: l1s.map(l1 => metrics[l1].impression),
-        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        data: keys.map(k => metrics[k].impression),
+        backgroundColor: keys.map(k => getDimColor(k)),
         borderRadius: 5
       }]
     },
@@ -700,14 +803,14 @@ function renderImpressionAnalysis() {
       }
     }
   });
-  
+
   // 渲染表格
   const tbody = document.querySelector('#table-impression tbody');
-  tbody.innerHTML = l1s.map(l1 => {
-    const m = metrics[l1];
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
     const pct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
     return `<tr>
-      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td>${renderDimBadge(k)}</td>
       <td class="num">${m.count.toLocaleString()}</td>
       <td class="num" style="color:#3b82f6;font-weight:600">${m.impression.toLocaleString()}</td>
       <td class="num">${pct}%</td>
@@ -719,20 +822,20 @@ function renderImpressionAnalysis() {
 }
 
 function renderClickAnalysis() {
-  const metrics = calculateMetrics();
-  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].click - metrics[a].click);
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].click - metrics[a].click);
   const totalClick = Object.values(metrics).reduce((sum, m) => sum + m.click, 0);
-  
+
   // 渲染图表
   if (analysisCharts.click) analysisCharts.click.destroy();
   analysisCharts.click = new Chart(document.getElementById('chart-click'), {
     type: 'bar',
     data: {
-      labels: l1s,
+      labels: keys,
       datasets: [{
         label: '点击量',
-        data: l1s.map(l1 => metrics[l1].click),
-        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        data: keys.map(k => metrics[k].click),
+        backgroundColor: keys.map(k => getDimColor(k)),
         borderRadius: 5
       }]
     },
@@ -745,14 +848,14 @@ function renderClickAnalysis() {
       }
     }
   });
-  
+
   // 渲染表格
   const tbody = document.querySelector('#table-click tbody');
-  tbody.innerHTML = l1s.map(l1 => {
-    const m = metrics[l1];
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
     const pct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
     return `<tr>
-      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td>${renderDimBadge(k)}</td>
       <td class="num">${m.count.toLocaleString()}</td>
       <td class="num" style="color:#10b981;font-weight:600">${m.click.toLocaleString()}</td>
       <td class="num">${pct}%</td>
@@ -764,30 +867,29 @@ function renderClickAnalysis() {
 }
 
 function renderEfficiencyAnalysis() {
-  const metrics = calculateMetrics();
-  
+  const metrics = calculateMetrics(analysisDim);
+
   // 计算效率评分（综合CTR和CPC）
-  Object.keys(metrics).forEach(l1 => {
-    const m = metrics[l1];
-    // 效率评分 = CTR / CPC * 100（CTR越高、CPC越低，效率越高）
+  Object.keys(metrics).forEach(key => {
+    const m = metrics[key];
     m.efficiency = m.cpc > 0 ? (m.ctr / m.cpc * 100) : 0;
   });
-  
-  const l1s = Object.keys(metrics).sort((a, b) => metrics[b].efficiency - metrics[a].efficiency);
+
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].efficiency - metrics[a].efficiency);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
   const totalImp = Object.values(metrics).reduce((sum, m) => sum + m.impression, 0);
   const totalClick = Object.values(metrics).reduce((sum, m) => sum + m.click, 0);
-  
+
   // 渲染图表
   if (analysisCharts.efficiency) analysisCharts.efficiency.destroy();
   analysisCharts.efficiency = new Chart(document.getElementById('chart-efficiency'), {
     type: 'bar',
     data: {
-      labels: l1s,
+      labels: keys,
       datasets: [{
         label: '效率评分',
-        data: l1s.map(l1 => metrics[l1].efficiency),
-        backgroundColor: l1s.map(l1 => L1_META[l1]?.color || '#999'),
+        data: keys.map(k => metrics[k].efficiency),
+        backgroundColor: keys.map(k => getDimColor(k)),
         borderRadius: 5
       }]
     },
@@ -798,16 +900,16 @@ function renderEfficiencyAnalysis() {
       scales: { y: { beginAtZero: true } }
     }
   });
-  
+
   // 渲染表格
   const tbody = document.querySelector('#table-efficiency tbody');
-  tbody.innerHTML = l1s.map(l1 => {
-    const m = metrics[l1];
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
     const costPct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
     const impPct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
     const clickPct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
     return `<tr>
-      <td><span class="l1-badge ${L1_META[l1]?.cls || ''}">${l1}</span></td>
+      <td>${renderDimBadge(k)}</td>
       <td class="num">${m.count.toLocaleString()}</td>
       <td class="num">${m.ctr.toFixed(2)}%</td>
       <td class="num">¥${m.cpc.toFixed(2)}</td>
@@ -815,6 +917,169 @@ function renderEfficiencyAnalysis() {
       <td class="num">${impPct}%</td>
       <td class="num">${clickPct}%</td>
       <td class="num" style="color:#8b5cf6;font-weight:600">${m.efficiency.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// APP 成本分析模块（互动/打开/订单）
+// ═══════════════════════════════════════════════════
+
+function renderAppInteractAnalysis() {
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appInteractCost - metrics[a].appInteractCost);
+  const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+
+  if (analysisCharts.appInteract) analysisCharts.appInteract.destroy();
+  analysisCharts.appInteract = new Chart(document.getElementById('chart-appInteract'), {
+    type: 'bar',
+    data: {
+      labels: keys,
+      datasets: [{
+        label: 'APP互动成本',
+        data: keys.map(k => metrics[k].appInteract > 0 ? metrics[k].appInteractCost : 0),
+        backgroundColor: keys.map(k => getDimColor(k)),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = metrics[keys[ctx.dataIndex]];
+              return m.appInteract > 0 ? ` APP互动成本: ¥${ctx.parsed.y.toFixed(2)}` : ' 无APP互动数据';
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '¥' + v.toLocaleString() } }
+      }
+    }
+  });
+
+  const tbody = document.querySelector('#table-appInteract tbody');
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
+    const pct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    const costStr = m.appInteract > 0 ? '¥' + m.appInteractCost.toFixed(2) : '-';
+    return `<tr>
+      <td>${renderDimBadge(k)}</td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#ef4444;font-weight:600">¥${m.cost.toLocaleString()}</td>
+      <td class="num" style="color:#8b5cf6;font-weight:600">${m.appInteract.toLocaleString()}</td>
+      <td class="num" style="color:#8b5cf6;font-weight:600">${costStr}</td>
+      <td class="num">${pct}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAppOpenAnalysis() {
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOpenCost - metrics[a].appOpenCost);
+  const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+
+  if (analysisCharts.appOpen) analysisCharts.appOpen.destroy();
+  analysisCharts.appOpen = new Chart(document.getElementById('chart-appOpen'), {
+    type: 'bar',
+    data: {
+      labels: keys,
+      datasets: [{
+        label: 'APP打开成本',
+        data: keys.map(k => metrics[k].appOpen > 0 ? metrics[k].appOpenCost : 0),
+        backgroundColor: keys.map(k => getDimColor(k)),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = metrics[keys[ctx.dataIndex]];
+              return m.appOpen > 0 ? ` APP打开成本: ¥${ctx.parsed.y.toFixed(2)}` : ' 无APP打开数据';
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '¥' + v.toLocaleString() } }
+      }
+    }
+  });
+
+  const tbody = document.querySelector('#table-appOpen tbody');
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
+    const pct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    const costStr = m.appOpen > 0 ? '¥' + m.appOpenCost.toFixed(2) : '-';
+    return `<tr>
+      <td>${renderDimBadge(k)}</td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#ef4444;font-weight:600">¥${m.cost.toLocaleString()}</td>
+      <td class="num" style="color:#ec4899;font-weight:600">${m.appOpen.toLocaleString()}</td>
+      <td class="num" style="color:#ec4899;font-weight:600">${costStr}</td>
+      <td class="num">${pct}%</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAppOrderAnalysis() {
+  const metrics = calculateMetrics(analysisDim);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOrderCost - metrics[a].appOrderCost);
+  const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+
+  if (analysisCharts.appOrder) analysisCharts.appOrder.destroy();
+  analysisCharts.appOrder = new Chart(document.getElementById('chart-appOrder'), {
+    type: 'bar',
+    data: {
+      labels: keys,
+      datasets: [{
+        label: 'APP订单成本',
+        data: keys.map(k => metrics[k].appOrder > 0 ? metrics[k].appOrderCost : 0),
+        backgroundColor: keys.map(k => getDimColor(k)),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const m = metrics[keys[ctx.dataIndex]];
+              return m.appOrder > 0 ? ` APP订单成本: ¥${ctx.parsed.y.toFixed(2)}` : ' 无APP订单数据';
+            }
+          }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => '¥' + v.toLocaleString() } }
+      }
+    }
+  });
+
+  const tbody = document.querySelector('#table-appOrder tbody');
+  tbody.innerHTML = keys.map(k => {
+    const m = metrics[k];
+    const pct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
+    const costStr = m.appOrder > 0 ? '¥' + m.appOrderCost.toFixed(2) : '-';
+    return `<tr>
+      <td>${renderDimBadge(k)}</td>
+      <td class="num">${m.count.toLocaleString()}</td>
+      <td class="num" style="color:#ef4444;font-weight:600">¥${m.cost.toLocaleString()}</td>
+      <td class="num" style="color:#0d9488;font-weight:600">${m.appOrder.toLocaleString()}</td>
+      <td class="num" style="color:#0d9488;font-weight:600">${costStr}</td>
+      <td class="num">${pct}%</td>
     </tr>`;
   }).join('');
 }
@@ -1141,25 +1406,59 @@ document.getElementById('file-input').addEventListener('change', function() {
 let crossCharts = {};
 let crossSelectedL1 = new Set();
 let crossSelectedL2 = new Set();
+let crossSelectedAdBiz = new Set();
+
+// ── 交叉分析维度辅助函数 ──
+function getCrossDimLabel() {
+  return crossDim === 'adBizLine' ? '投放素材业务线' : '业务线';
+}
+
+function getCrossDimColor(val) {
+  if (crossDim === 'adBizLine') return '#6366f1';
+  return L1_META[val]?.color || '#999';
+}
+
+function renderCrossDimBadge(val) {
+  if (crossDim === 'adBizLine') {
+    return `<span class="l1-badge unclassified">${escHtml(val)}</span>`;
+  }
+  return `<span class="l1-badge ${L1_META[val]?.cls || ''}">${escHtml(val)}</span>`;
+}
+
+function switchCrossDim() {
+  crossDim = document.getElementById('cross-dim-select').value;
+  const titleEl = document.getElementById('cross-chart-l1-title');
+  if (titleEl) titleEl.textContent = '📊 ' + getCrossDimLabel() + '维度';
+  updateCrossL2Tags();
+  renderCrossAnalysis();
+}
 
 function initCrossFilters() {
   // 获取所有唯一的l1和l2
   const l1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
   const l2Set = new Set(allResults.map(r => r.l2).filter(Boolean));
-  
+  const adBizSet = new Set(allResults.map(r => r.adBizLine || '未标注'));
+
   // 默认全选
   crossSelectedL1 = new Set(l1Set);
   crossSelectedL2 = new Set(l2Set);
-  
+  crossSelectedAdBiz = new Set(adBizSet);
+
   // 渲染业务线筛选器
   const l1Container = document.getElementById('cross-filter-l1');
-  l1Container.innerHTML = [...l1Set].sort().map(l1 => 
+  l1Container.innerHTML = [...l1Set].sort().map(l1 =>
     `<span class="filter-tag active" data-l1="${l1}" onclick="toggleCrossL1(this)">${l1}</span>`
   ).join('');
-  
+
+  // 渲染投放素材业务线筛选器
+  const adBizContainer = document.getElementById('cross-filter-adbiz');
+  adBizContainer.innerHTML = [...adBizSet].sort().map(ab =>
+    `<span class="filter-tag active" data-adbiz="${escHtml(ab)}" onclick="toggleCrossAdBiz(this)">${escHtml(ab)}</span>`
+  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（无投放素材业务线数据）</span>';
+
   // 渲染词包筛选器
   const l2Container = document.getElementById('cross-filter-l2');
-  l2Container.innerHTML = [...l2Set].sort().map(l2 => 
+  l2Container.innerHTML = [...l2Set].sort().map(l2 =>
     `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
   ).join('');
 }
@@ -1174,29 +1473,50 @@ function toggleCrossL1(el) {
     el.classList.add('active');
   }
   // 业务线变化后，联动更新词包标签（只显示选中业务线下存在的词包）
-  updateCrossL2Tags();
+  if (crossDim === 'l1') updateCrossL2Tags();
   renderCrossAnalysis();
 }
 
-// 根据当前选中的业务线，动态更新词包筛选标签
+function toggleCrossAdBiz(el) {
+  const ab = el.dataset.adbiz;
+  if (crossSelectedAdBiz.has(ab)) {
+    crossSelectedAdBiz.delete(ab);
+    el.classList.remove('active');
+  } else {
+    crossSelectedAdBiz.add(ab);
+    el.classList.add('active');
+  }
+  if (crossDim === 'adBizLine') updateCrossL2Tags();
+  renderCrossAnalysis();
+}
+
+// 根据当前选中的维度，动态更新词包筛选标签
 function updateCrossL2Tags() {
-  // 计算选中业务线下实际存在的词包集合
+  const selectedSet = crossDim === 'adBizLine' ? crossSelectedAdBiz : crossSelectedL1;
+  const dimField = crossDim === 'adBizLine' ? 'adBizLine' : 'l1';
+
+  // 计算选中维度下实际存在的词包集合
   let availableL2s;
-  if (crossSelectedL1.size === 0) {
+  if (selectedSet.size === 0) {
     availableL2s = new Set();
   } else {
     availableL2s = new Set(
       allResults
-        .filter(r => r.l1 && crossSelectedL1.has(r.l1) && r.l2)
+        .filter(r => {
+          const val = crossDim === 'adBizLine' ? (r.adBizLine || '未标注') : r.l1;
+          return val && selectedSet.has(val) && r.l2;
+        })
         .map(r => r.l2)
     );
   }
 
   const l2Container = document.getElementById('cross-filter-l2');
 
-  // 如果选中了全部业务线（等于初始全量），直接显示全部词包
-  const allL1Set = new Set(allResults.map(r => r.l1).filter(Boolean));
-  const isAllSelected = [...allL1Set].every(l1 => crossSelectedL1.has(l1));
+  // 如果选中了全部维度值，直接显示全部词包
+  const allDimSet = new Set(allResults.map(r => {
+    return crossDim === 'adBizLine' ? (r.adBizLine || '未标注') : r.l1;
+  }).filter(Boolean));
+  const isAllSelected = [...allDimSet].every(v => selectedSet.has(v));
 
   if (isAllSelected) {
     availableL2s = new Set(allResults.map(r => r.l2).filter(Boolean));
@@ -1206,7 +1526,7 @@ function updateCrossL2Tags() {
   crossSelectedL2 = new Set(availableL2s);
   l2Container.innerHTML = [...availableL2s].sort().map(l2 =>
     `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
-  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（当前业务线下无词包）</span>';
+  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（当前维度下无词包）</span>';
 }
 
 function toggleCrossL2(el) {
@@ -1224,82 +1544,96 @@ function toggleCrossL2(el) {
 function clearCrossFilters() {
   crossSelectedL1 = new Set(allResults.map(r => r.l1).filter(Boolean));
   crossSelectedL2 = new Set(allResults.map(r => r.l2).filter(Boolean));
-  
+  crossSelectedAdBiz = new Set(allResults.map(r => r.adBizLine || '未标注'));
+
   document.querySelectorAll('#cross-filter-l1 .filter-tag').forEach(el => {
     el.classList.add('active');
   });
 
   // 清除时恢复全量词包标签
-  const l2Container = document.getElementById('cross-filter-l2');
-  l2Container.innerHTML = [...crossSelectedL2].sort().map(l2 =>
-    `<span class="filter-tag active" data-l2="${l2}" onclick="toggleCrossL2(this)">${l2}</span>`
-  ).join('');
-  
+  updateCrossL2Tags();
+
+  // 恢复投放素材业务线标签
+  const adBizContainer = document.getElementById('cross-filter-adbiz');
+  adBizContainer.innerHTML = [...crossSelectedAdBiz].sort().map(ab =>
+    `<span class="filter-tag active" data-adbiz="${escHtml(ab)}" onclick="toggleCrossAdBiz(this)">${escHtml(ab)}</span>`
+  ).join('') || '<span style="color:#9ca3af;font-size:12px;">（无投放素材业务线数据）</span>';
+
   renderCrossAnalysis();
 }
 
 function calculateCrossMetrics() {
   const metrics = {};
-  
-  // 只统计选中的业务线和词包
+
+  // 只统计选中的维度和词包
   allResults.forEach(r => {
-    const l1 = r.l1 || '未分类';
+    const dimVal = crossDim === 'adBizLine' ? (r.adBizLine || '未标注') : (r.l1 || '未分类');
     const l2 = r.l2 || '通用词';
-    
-    if (!crossSelectedL1.has(l1) || !crossSelectedL2.has(l2)) return;
-    
-    const key = l1 + '|||' + l2;
+
+    if (crossDim === 'adBizLine') {
+      if (!crossSelectedAdBiz.has(dimVal)) return;
+    } else {
+      if (!crossSelectedL1.has(dimVal)) return;
+    }
+    if (!crossSelectedL2.has(l2)) return;
+
+    const key = dimVal + '|||' + l2;
     if (!metrics[key]) {
-      metrics[key] = { l1, l2, count: 0, cost: 0, impression: 0, click: 0 };
+      metrics[key] = { dimVal, l2, count: 0, cost: 0, impression: 0, click: 0 };
     }
     metrics[key].count++;
     metrics[key].cost += r.cost || 0;
     metrics[key].impression += r.impression || 0;
     metrics[key].click += r.click || 0;
   });
-  
+
   // 计算衍生指标
   Object.values(metrics).forEach(m => {
     m.ctr = m.impression > 0 ? (m.click / m.impression * 100) : 0;
     m.cpc = m.click > 0 ? (m.cost / m.click) : 0;
     m.efficiency = m.cpc > 0 ? (m.ctr / m.cpc * 100) : 0;
   });
-  
+
   return metrics;
 }
 
 function renderCrossAnalysis() {
   const metrics = calculateCrossMetrics();
   const metricField = document.getElementById('cross-metric-select').value;
-  
-  // 获取所有唯一的l1和l2（只包含选中的）
-  const l1s = [...crossSelectedL1].sort();
+
+  // 获取所有唯一的维度值和词包（只包含选中的）
+  let dimVals;
+  if (crossDim === 'adBizLine') {
+    dimVals = [...crossSelectedAdBiz].sort();
+  } else {
+    dimVals = [...crossSelectedL1].sort();
+  }
   const l2s = [...crossSelectedL2].sort();
-  
-  if (l1s.length === 0 || l2s.length === 0) {
-    document.getElementById('cross-summary-cards').innerHTML = '<p style="color:#9ca3af;text-align:center;">请选择至少一个业务线和词包</p>';
+
+  if (dimVals.length === 0 || l2s.length === 0) {
+    document.getElementById('cross-summary-cards').innerHTML = '<p style="color:#9ca3af;text-align:center;">请选择至少一个' + getCrossDimLabel() + '和词包</p>';
     return;
   }
-  
+
   // 构建矩阵
   const matrix = {};
-  l1s.forEach(l1 => {
-    matrix[l1] = {};
+  dimVals.forEach(dv => {
+    matrix[dv] = {};
     l2s.forEach(l2 => {
-      const key = l1 + '|||' + l2;
-      matrix[l1][l2] = metrics[key] || { l1, l2, count: 0, cost: 0, impression: 0, click: 0, ctr: 0, cpc: 0, efficiency: 0 };
+      const key = dv + '|||' + l2;
+      matrix[dv][l2] = metrics[key] || { dimVal: dv, l2, count: 0, cost: 0, impression: 0, click: 0, ctr: 0, cpc: 0, efficiency: 0 };
     });
   });
-  
+
   // 渲染概览卡片
   renderCrossSummaryCards(metrics);
-  
+
   // 渲染图表
-  renderCrossCharts(l1s, l2s, matrix, metricField);
-  
+  renderCrossCharts(dimVals, l2s, matrix, metricField);
+
   // 渲染热力图
-  renderCrossHeatmap(l1s, l2s, matrix, metricField);
-  
+  renderCrossHeatmap(dimVals, l2s, matrix, metricField);
+
   // 渲染详细表格
   renderCrossDetailTable(metrics);
 }
@@ -1333,51 +1667,51 @@ function renderCrossSummaryCards(metrics) {
   `).join('');
 }
 
-function renderCrossCharts(l1s, l2s, matrix, metricField) {
+function renderCrossCharts(dimVals, l2s, matrix, metricField) {
   // 计算合计并排序
-  const l1Totals = {};
-  l1s.forEach(l1 => {
+  const dimTotals = {};
+  dimVals.forEach(dv => {
     let sum = 0;
-    l2s.forEach(l2 => sum += matrix[l1][l2][metricField] || 0);
-    l1Totals[l1] = sum;
+    l2s.forEach(l2 => sum += matrix[dv][l2][metricField] || 0);
+    dimTotals[dv] = sum;
   });
-  
+
   const l2Totals = {};
   l2s.forEach(l2 => {
     let sum = 0;
-    l1s.forEach(l1 => sum += matrix[l1][l2][metricField] || 0);
+    dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
     l2Totals[l2] = sum;
   });
-  
+
   // 按合计值降序排序
-  const sortedL1s = [...l1s].sort((a, b) => l1Totals[b] - l1Totals[a]);
+  const sortedDims = [...dimVals].sort((a, b) => dimTotals[b] - dimTotals[a]);
   const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
-  
-  // 业务线维度图表（已排序）
-  const l1Data = sortedL1s.map(l1 => l1Totals[l1]);
-  const l1Colors = sortedL1s.map(l1 => L1_META[l1]?.color || '#999');
-  
+
+  // 维度图表（已排序）
+  const dimData = sortedDims.map(dv => dimTotals[dv]);
+  const dimColors = sortedDims.map(dv => getCrossDimColor(dv));
+
   if (crossCharts.l1) crossCharts.l1.destroy();
   crossCharts.l1 = new Chart(document.getElementById('chart-cross-l1'), {
     type: 'bar',
     data: {
-      labels: sortedL1s,
+      labels: sortedDims,
       datasets: [{
         label: getMetricLabel(metricField),
-        data: l1Data,
-        backgroundColor: l1Colors,
+        data: dimData,
+        backgroundColor: dimColors,
         borderRadius: 5
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { 
+      plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             label: ctx => {
-              const total = l1Data.reduce((a, b) => a + b, 0);
+              const total = dimData.reduce((a, b) => a + b, 0);
               const pct = total > 0 ? (ctx.parsed.y / total * 100).toFixed(1) : 0;
               return ` ${ctx.parsed.y.toLocaleString()} (${pct}%)`;
             }
@@ -1387,11 +1721,11 @@ function renderCrossCharts(l1s, l2s, matrix, metricField) {
       scales: { y: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
     }
   });
-  
+
   // 词包维度图表（已排序）
   const l2Data = sortedL2s.map(l2 => l2Totals[l2]);
   const totalL2 = l2Data.reduce((a, b) => a + b, 0);
-  
+
   if (crossCharts.l2) crossCharts.l2.destroy();
   crossCharts.l2 = new Chart(document.getElementById('chart-cross-l2'), {
     type: 'doughnut',
@@ -1422,52 +1756,52 @@ function renderCrossCharts(l1s, l2s, matrix, metricField) {
   });
 }
 
-function renderCrossHeatmap(l1s, l2s, matrix, metricField) {
-  // 计算每个业务线的合计值，用于排序
-  const l1Totals = {};
-  l1s.forEach(l1 => {
+function renderCrossHeatmap(dimVals, l2s, matrix, metricField) {
+  // 计算每个维度值的合计值，用于排序
+  const dimTotals = {};
+  dimVals.forEach(dv => {
     let sum = 0;
     l2s.forEach(l2 => {
-      sum += matrix[l1][l2][metricField] || 0;
+      sum += matrix[dv][l2][metricField] || 0;
     });
-    l1Totals[l1] = sum;
+    dimTotals[dv] = sum;
   });
-  
+
   // 计算每个词包的合计值，用于排序
   const l2Totals = {};
   l2s.forEach(l2 => {
     let sum = 0;
-    l1s.forEach(l1 => {
-      sum += matrix[l1][l2][metricField] || 0;
+    dimVals.forEach(dv => {
+      sum += matrix[dv][l2][metricField] || 0;
     });
     l2Totals[l2] = sum;
   });
-  
+
   // 按合计值降序排序
-  const sortedL1s = [...l1s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  const sortedDims = [...dimVals].sort((a, b) => dimTotals[b] - dimTotals[a]);
   const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
-  
+
   // 计算所有数据的最大值用于颜色映射
   let maxValue = 0;
-  sortedL1s.forEach(l1 => {
+  sortedDims.forEach(dv => {
     sortedL2s.forEach(l2 => {
-      maxValue = Math.max(maxValue, matrix[l1][l2][metricField] || 0);
+      maxValue = Math.max(maxValue, matrix[dv][l2][metricField] || 0);
     });
   });
-  
+
   // 计算总计（用于百分比计算）
   let grandTotal = 0;
-  sortedL1s.forEach(l1 => {
+  sortedDims.forEach(dv => {
     sortedL2s.forEach(l2 => {
-      grandTotal += matrix[l1][l2][metricField] || 0;
+      grandTotal += matrix[dv][l2][metricField] || 0;
     });
   });
-  
+
   // 生成热力图HTML
   let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
-  
+
   // 表头
-  html += '<thead><tr><th style="background:#f9fafb;padding:8px;border:1px solid #e5e7eb;">业务线 \\ 词包</th>';
+  html += '<thead><tr><th style="background:#f9fafb;padding:8px;border:1px solid #e5e7eb;">' + getCrossDimLabel() + ' \\ 词包</th>';
   sortedL2s.forEach(l2 => {
     const colTotal = l2Totals[l2] || 0;
     const colPct = grandTotal > 0 ? (colTotal / grandTotal * 100).toFixed(1) : 0;
@@ -1481,49 +1815,49 @@ function renderCrossHeatmap(l1s, l2s, matrix, metricField) {
     <div>合计</div>
     <div style="font-size:10px;color:#6b7280;font-weight:normal;">${formatMetricValue(grandTotal, metricField)}</div>
   </th></tr></thead>`;
-  
+
   // 表体
   html += '<tbody>';
-  sortedL1s.forEach(l1 => {
-    const rowTotal = l1Totals[l1] || 0;
+  sortedDims.forEach(dv => {
+    const rowTotal = dimTotals[dv] || 0;
     const rowPct = grandTotal > 0 ? (rowTotal / grandTotal * 100).toFixed(1) : 0;
-    
+
     html += `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb;">
-      <div>${l1}</div>
-      <div style="font-size:10px;color:#6b7280;font-weight:normal;">${formatMetricValue(rowTotal, metricField)}</div>
+      <div>${renderCrossDimBadge(dv)}</div>
+      <div style="font-size:10px;color:#6b7280;font-weight:normal;margin-top:2px;">${formatMetricValue(rowTotal, metricField)}</div>
       <div style="font-size:10px;color:#1a73e8;font-weight:normal;">${rowPct}%</div>
     </td>`;
-    
+
     sortedL2s.forEach(l2 => {
-      const value = matrix[l1][l2][metricField] || 0;
-      
+      const value = matrix[dv][l2][metricField] || 0;
+
       // 计算颜色强度
       const intensity = maxValue > 0 ? (value / maxValue) : 0;
       const color = getHeatmapColor(intensity, metricField);
-      
+
       // 计算百分比（占总计）
       const pct = grandTotal > 0 ? (value / grandTotal * 100).toFixed(1) : 0;
-      const rowPct = rowTotal > 0 ? (value / rowTotal * 100).toFixed(1) : 0;
-      
+      const rPct = rowTotal > 0 ? (value / rowTotal * 100).toFixed(1) : 0;
+
       html += `<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;background:${color};cursor:pointer;transition:all .15s;"
         onmouseover="this.style.transform='scale(1.05)';this.style.zIndex='10';this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15)';this.style.position='relative'"
         onmouseout="this.style.transform='';this.style.zIndex='';this.style.boxShadow=''"
-        title="${l1} × ${l2}: ${formatMetricValue(value, metricField)} (${pct}% of total)"
+        title="${dv} × ${l2}: ${formatMetricValue(value, metricField)} (${pct}% of total)"
       >
         <div style="font-weight:600;font-size:13px;">${formatMetricValue(value, metricField)}</div>
         <div style="font-size:10px;color:#374151;margin-top:2px;">${pct}%</div>
-        <div style="font-size:9px;color:#6b7280;">行${rowPct}%</div>
+        <div style="font-size:9px;color:#6b7280;">行${rPct}%</div>
       </td>`;
     });
-    
+
     html += `<td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:600;background:#f3f4f6;">
       <div>${formatMetricValue(rowTotal, metricField)}</div>
       <div style="font-size:10px;color:#1a73e8;">${rowPct}%</div>
     </td></tr>`;
   });
-  
+
   html += '</tbody></table>';
-  
+
   document.getElementById('cross-heatmap').innerHTML = html;
 }
 
@@ -1542,22 +1876,22 @@ function sortCrossTable(field) {
 
 function renderCrossDetailTable(metrics) {
   const values = Object.values(metrics);
-  
+
   // 排序
   values.sort((a, b) => {
     const aVal = a[crossSortField] || 0;
     const bVal = b[crossSortField] || 0;
     return crossSortDesc ? bVal - aVal : aVal - bVal;
   });
-  
+
   // 计算总计用于百分比
   const totalCost = values.reduce((sum, m) => sum + m.cost, 0);
   const totalImp = values.reduce((sum, m) => sum + m.impression, 0);
   const totalClick = values.reduce((sum, m) => sum + m.click, 0);
-  
+
   // 渲染动态表头（带排序指示器）
   const headers = [
-    { field: null, label: '业务线' },
+    { field: null, label: getCrossDimLabel() },
     { field: null, label: '词包' },
     { field: 'count', label: '关键词数' },
     { field: 'cost', label: '花费' },
@@ -1567,23 +1901,23 @@ function renderCrossDetailTable(metrics) {
     { field: 'cpc', label: 'CPC' },
     { field: 'efficiency', label: '效率评分' }
   ];
-  
+
   const theadHtml = headers.map(h => {
     if (!h.field) return `<th>${h.label}</th>`;
     const arrow = crossSortField === h.field ? (crossSortDesc ? ' ▼' : ' ▲') : '';
     return `<th style="cursor:pointer;" onclick="sortCrossTable('${h.field}')" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background=''">${h.label}${arrow}</th>`;
   }).join('');
   document.getElementById('cross-detail-header').innerHTML = theadHtml;
-  
+
   const tbody = document.querySelector('#table-cross-detail tbody');
   tbody.innerHTML = values.map(m => {
     const costPct = totalCost > 0 ? (m.cost / totalCost * 100).toFixed(1) : 0;
     const impPct = totalImp > 0 ? (m.impression / totalImp * 100).toFixed(1) : 0;
     const clickPct = totalClick > 0 ? (m.click / totalClick * 100).toFixed(1) : 0;
-    
+
     return `
     <tr>
-      <td><span class="l1-badge ${L1_META[m.l1]?.cls || ''}">${m.l1}</span></td>
+      <td>${renderCrossDimBadge(m.dimVal)}</td>
       <td><span class="l2-tag">${m.l2}</span></td>
       <td class="num">${m.count.toLocaleString()}</td>
       <td class="num" style="color:#ef4444">
@@ -1605,7 +1939,7 @@ function renderCrossDetailTable(metrics) {
       </td>
     </tr>`;
   }).join('');
-  
+
   // 添加合计行
   const totalRow = `
     <tr style="background:#f3f4f6;font-weight:600;">

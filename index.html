@@ -43,6 +43,10 @@
           <div><span style="color:#f59e0b;font-weight:600;">第二列</span>：花费（可选）</div>
           <div><span style="color:#3b82f6;font-weight:600;">第三列</span>：曝光（可选）</div>
           <div><span style="color:#10b981;font-weight:600;">第四列</span>：点击（可选）</div>
+          <div><span style="color:#8b5cf6;font-weight:600;">第五列</span>：APP互动（可选）</div>
+          <div><span style="color:#ec4899;font-weight:600;">第六列</span>：APP打开（可选）</div>
+          <div><span style="color:#0d9488;font-weight:600;">第七列</span>：APP订单（可选）</div>
+          <div><span style="color:#6366f1;font-weight:600;">第九列</span>：投放素材业务线（可选）</div>
         </div>
         <div class="filename" id="filename-display"></div>
         <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onclick="event.stopPropagation()">
@@ -52,6 +56,10 @@
         <div><label>花费所在列 (可选)</label><input type="number" id="col-cost" value="2" min="1"></div>
         <div><label>曝光所在列 (可选)</label><input type="number" id="col-impression" value="3" min="1"></div>
         <div><label>点击所在列 (可选)</label><input type="number" id="col-click" value="4" min="1"></div>
+        <div><label>APP互动列 (可选)</label><input type="number" id="col-app-interact" value="5" min="1"></div>
+        <div><label>APP打开列 (可选)</label><input type="number" id="col-app-open" value="6" min="1"></div>
+        <div><label>APP订单列 (可选)</label><input type="number" id="col-app-order" value="7" min="1"></div>
+        <div><label>投放素材业务线列 (可选)</label><input type="number" id="col-ad-biz-line" value="9" min="1"></div>
         <div><label>从第几行开始读取</label><input type="number" id="row-start" value="2" min="1"></div>
       </div>
     </div>
@@ -89,11 +97,21 @@
     <!-- 数据分析模块 -->
     <div class="card mb-4" id="analysis-section">
       <div class="card-title">📊 数据分析（按业务线）</div>
-      <div class="analysis-tabs" style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+        <span style="font-size:13px;font-weight:600;color:var(--text);">分组维度:</span>
+        <select class="filter-select" id="analysis-dim-select" onchange="switchAnalysisDim()">
+          <option value="l1">业务线（L1）</option>
+          <option value="adBizLine">投放素材业务线</option>
+        </select>
+      </div>
+      <div class="analysis-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
         <button class="tab-btn active" onclick="switchAnalysisTab('cost')" data-analysis="cost">💰 花费分析</button>
         <button class="tab-btn" onclick="switchAnalysisTab('impression')" data-analysis="impression">👁 曝光分析</button>
         <button class="tab-btn" onclick="switchAnalysisTab('click')" data-analysis="click">🖱 点击分析</button>
         <button class="tab-btn" onclick="switchAnalysisTab('efficiency')" data-analysis="efficiency">📈 效率分析</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('appInteract')" data-analysis="appInteract">📱 APP互动成本</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('appOpen')" data-analysis="appOpen">📲 APP打开成本</button>
+        <button class="tab-btn" onclick="switchAnalysisTab('appOrder')" data-analysis="appOrder">🛒 APP订单成本</button>
       </div>
       
       <!-- 花费分析 -->
@@ -102,7 +120,7 @@
         <div class="tbl-wrap">
           <table id="table-cost">
             <thead>
-              <tr><th>一级分类</th><th>关键词数</th><th>总花费</th><th>花费占比</th><th>平均花费</th><th>曝光量</th><th>点击量</th><th>CPC</th></tr>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总花费</th><th>花费占比</th><th>平均花费</th><th>曝光量</th><th>点击量</th><th>CPC</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -115,7 +133,7 @@
         <div class="tbl-wrap">
           <table id="table-impression">
             <thead>
-              <tr><th>一级分类</th><th>关键词数</th><th>总曝光</th><th>曝光占比</th><th>平均曝光</th><th>点击量</th><th>CTR</th></tr>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总曝光</th><th>曝光占比</th><th>平均曝光</th><th>点击量</th><th>CTR</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -128,7 +146,7 @@
         <div class="tbl-wrap">
           <table id="table-click">
             <thead>
-              <tr><th>一级分类</th><th>关键词数</th><th>总点击</th><th>点击占比</th><th>平均点击</th><th>花费</th><th>CPC</th></tr>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总点击</th><th>点击占比</th><th>平均点击</th><th>花费</th><th>CPC</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -141,7 +159,45 @@
         <div class="tbl-wrap">
           <table id="table-efficiency">
             <thead>
-              <tr><th>一级分类</th><th>关键词数</th><th>CTR</th><th>CPC</th><th>花费占比</th><th>曝光占比</th><th>点击占比</th><th>效率评分</th></tr>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>CTR</th><th>CPC</th><th>花费占比</th><th>曝光占比</th><th>点击占比</th><th>效率评分</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- APP互动成本分析 -->
+      <div id="analysis-appInteract" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-appInteract"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-appInteract">
+            <thead>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总消费</th><th>总APP互动</th><th>APP互动成本</th><th>消费占比</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- APP打开成本分析 -->
+      <div id="analysis-appOpen" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-appOpen"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-appOpen">
+            <thead>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总消费</th><th>总APP打开</th><th>APP打开成本</th><th>消费占比</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- APP订单成本分析 -->
+      <div id="analysis-appOrder" class="analysis-content hidden">
+        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-appOrder"></canvas></div>
+        <div class="tbl-wrap">
+          <table id="table-appOrder">
+            <thead>
+              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>总消费</th><th>总APP订单</th><th>APP订单成本</th><th>消费占比</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -162,13 +218,24 @@
           </div>
         </div>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">投放素材业务线:</span>
+          <div id="cross-filter-adbiz" style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span style="color:#9ca3af;font-size:12px;">（请先上传文件）</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
           <span style="font-size:12px;color:#6b7280;font-weight:600;">词包:</span>
           <div id="cross-filter-l2" style="display:flex;gap:6px;flex-wrap:wrap;">
             <span style="color:#9ca3af;font-size:12px;">（请先上传文件）</span>
           </div>
         </div>
-        <div style="display:flex;gap:12px;align-items:center;">
-          <span style="font-size:12px;color:#6b7280;font-weight:600;">指标:</span>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:12px;color:#6b7280;font-weight:600;">维度:</span>
+          <select id="cross-dim-select" onchange="switchCrossDim()" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+            <option value="l1">业务线 × 词包</option>
+            <option value="adBizLine">投放素材业务线 × 词包</option>
+          </select>
+          <span style="font-size:12px;color:#6b7280;font-weight:600;margin-left:12px;">指标:</span>
           <select id="cross-metric-select" onchange="renderCrossAnalysis()" style="padding:4px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
             <option value="count">关键词数量</option>
             <option value="cost">花费</option>
@@ -188,7 +255,7 @@
       <!-- 图表区域 -->
       <div class="charts-grid" style="grid-template-columns:1fr 1fr;">
         <div class="chart-card">
-          <h3 style="font-size:14px;margin-bottom:12px;">📊 业务线维度</h3>
+          <h3 id="cross-chart-l1-title" style="font-size:14px;margin-bottom:12px;">📊 业务线维度</h3>
           <div class="chart-wrap" style="height:260px;"><canvas id="chart-cross-l1"></canvas></div>
         </div>
         <div class="chart-card">
@@ -289,6 +356,10 @@
           <select class="filter-select" id="filter-tier" onchange="onZoneTierChange()">
             <option value="">全部等级</option>
           </select>
+          <span class="filter-label" style="margin-left:12px;">素材业务线:</span>
+          <select class="filter-select" id="filter-ad-biz-line" onchange="renderTable(1)">
+            <option value="">全部</option>
+          </select>
         </div>
         <div class="filter-row">
           <button class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="clearFilters()">🗑 清除筛选</button>
@@ -307,6 +378,7 @@
               <th>城市</th>
               <th>分区</th>
               <th>等级</th>
+              <th>素材业务线</th>
               <th>花费</th>
               <th>曝光</th>
               <th>点击</th>
