@@ -79,6 +79,7 @@
     .l1-badge.train { background: #fce7f3; color: #9d174d; }
   .l1-badge.public { background: #cffafe; color: #0e7490; }
   .l1-badge.unclassified { background: #f3f4f6; color: #6b7280; }
+  .l1-badge.adbiz-badge { background: #ede9fe; color: #5b21b6; }
 
     .l2-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; background: #f3f4f6; color: var(--text-muted); }
 

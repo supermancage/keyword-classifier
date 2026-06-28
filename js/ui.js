@@ -571,6 +571,9 @@ function renderTable(page) {
     const l1Meta = L1_META[r.l1] || { cls: '', color: '#999' };
     const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
     const cpc = r.click > 0 ? '¥' + (r.cost / r.click).toFixed(2) : '-';
+    const appInteractCost = r.appInteract > 0 ? '¥' + (r.cost / r.appInteract).toFixed(2) : '-';
+    const appOpenCost = r.appOpen > 0 ? '¥' + (r.cost / r.appOpen).toFixed(2) : '-';
+    const appOrderCost = r.appOrder > 0 ? '¥' + (r.cost / r.appOrder).toFixed(2) : '-';
     return `<tr>
       <td class="num" style="color:#9ca3af">${start + i + 1}</td>
       <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.kw)}">${escHtml(r.kw)}</td>
@@ -580,12 +583,15 @@ function renderTable(page) {
       <td style="color:#059669;font-weight:500">${r.city||'-'}</td>
       <td style="color:#6366f1;font-weight:500">${r.zone||'-'}</td>
       <td style="color:#f59e0b;font-weight:500">${r.tier||'-'}</td>
-      <td style="color:#6366f1;font-weight:500">${r.adBizLine||'-'}</td>
+      <td>${r.adBizLine ? `<span class="l1-badge adbiz-badge">${escHtml(r.adBizLine)}</span>` : '<span style="color:#9ca3af">-</span>'}</td>
       <td class="num" style="color:#ef4444">${r.cost ? '¥' + r.cost.toLocaleString() : '-'}</td>
       <td class="num" style="color:#3b82f6">${r.impression ? r.impression.toLocaleString() : '-'}</td>
       <td class="num" style="color:#10b981">${r.click ? r.click.toLocaleString() : '-'}</td>
       <td class="num">${ctr}</td>
       <td class="num">${cpc}</td>
+      <td class="num" style="color:#8b5cf6">${appInteractCost}</td>
+      <td class="num" style="color:#ec4899">${appOpenCost}</td>
+      <td class="num" style="color:#0d9488">${appOrderCost}</td>
     </tr>`;
   }).join('');
 
@@ -613,12 +619,15 @@ function escHtml(s) {
 }
 
 function exportCSV() {
-  const rows = [['关键词','一级分类','二级分类','国家','城市','分区','等级','投放素材业务线','花费','曝光量','点击量','CTR','CPC']];
+  const rows = [['关键词','一级分类','二级分类','国家','城市','分区','等级','投放素材业务线','花费','曝光量','点击量','CTR','CPC','APP互动成本','APP打开成本','APP订单成本']];
   filteredResults.forEach(r => {
     const ctr = r.impression > 0 ? (r.click / r.impression * 100).toFixed(2) + '%' : '-';
     const cpc = r.click > 0 ? (r.cost / r.click).toFixed(2) : '-';
+    const appInteractCost = r.appInteract > 0 ? (r.cost / r.appInteract).toFixed(2) : '-';
+    const appOpenCost = r.appOpen > 0 ? (r.cost / r.appOpen).toFixed(2) : '-';
+    const appOrderCost = r.appOrder > 0 ? (r.cost / r.appOrder).toFixed(2) : '-';
     const kw = r.kw.replace(/[\r\n,]/g, ' ');
-    rows.push([kw, r.l1, r.l2, r.country, r.city, r.zone, r.tier, r.adBizLine || '', r.cost, r.impression, r.click, ctr, cpc]);
+    rows.push([kw, r.l1, r.l2, r.country, r.city, r.zone, r.tier, r.adBizLine || '', r.cost, r.impression, r.click, ctr, cpc, appInteractCost, appOpenCost, appOrderCost]);
   });
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   downloadFile('\ufeff' + csv, '关键词分类结果.csv', 'text/csv;charset=utf-8');
@@ -1785,38 +1794,7 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
   });
   const dimColors = sortedDims.map(dv => getCrossDimColor(dv));
 
-  if (crossCharts.l1) crossCharts.l1.destroy();
-  crossCharts.l1 = new Chart(document.getElementById('chart-cross-l1'), {
-    type: 'bar',
-    data: {
-      labels: sortedDims,
-      datasets: [{
-        label: getMetricLabel(metricField),
-        data: dimData,
-        backgroundColor: dimColors,
-        borderRadius: 5
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const total = dimData.reduce((a, b) => a + b, 0);
-              const pct = total > 0 ? (ctx.parsed.y / total * 100).toFixed(1) : 0;
-              return ` ${ctx.parsed.y.toLocaleString()} (${pct}%)`;
-            }
-          }
-        }
-      },
-      scales: { y: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
-    }
-  });
-
-  // 词包维度图表（已按cost排序，数值仍用metricField）
+  // 词包维度图表数据（已按cost排序，数值仍用metricField）
   const l2Data = sortedL2s.map(l2 => {
     let sum = 0;
     dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
@@ -1824,33 +1802,73 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
   });
   const totalL2 = l2Data.reduce((a, b) => a + b, 0);
 
-  if (crossCharts.l2) crossCharts.l2.destroy();
-  crossCharts.l2 = new Chart(document.getElementById('chart-cross-l2'), {
-    type: 'doughnut',
-    data: {
-      labels: sortedL2s,
-      datasets: [{
-        data: l2Data,
-        backgroundColor: sortedL2s.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
-        borderWidth: 2,
-        borderColor: '#fff'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, usePointStyle: true } },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const pct = totalL2 > 0 ? (ctx.parsed / totalL2 * 100).toFixed(1) : 0;
-              return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+  // 延迟到下一帧渲染，确保父容器已解除 hidden 状态且 canvas 有正确尺寸
+  requestAnimationFrame(() => {
+    const canvasL1 = document.getElementById('chart-cross-l1');
+    if (!canvasL1) return;
+
+    if (crossCharts.l1) crossCharts.l1.destroy();
+    crossCharts.l1 = new Chart(canvasL1, {
+      type: 'bar',
+      data: {
+        labels: sortedDims,
+        datasets: [{
+          label: getMetricLabel(metricField),
+          data: dimData,
+          backgroundColor: dimColors,
+          borderRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const total = dimData.reduce((a, b) => a + b, 0);
+                const pct = total > 0 ? (ctx.parsed.y / total * 100).toFixed(1) : 0;
+                return ` ${ctx.parsed.y.toLocaleString()} (${pct}%)`;
+              }
+            }
+          }
+        },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
+      }
+    });
+
+    const canvasL2 = document.getElementById('chart-cross-l2');
+    if (!canvasL2) return;
+
+    if (crossCharts.l2) crossCharts.l2.destroy();
+    crossCharts.l2 = new Chart(canvasL2, {
+      type: 'doughnut',
+      data: {
+        labels: sortedL2s,
+        datasets: [{
+          data: l2Data,
+          backgroundColor: sortedL2s.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, usePointStyle: true } },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const pct = totalL2 > 0 ? (ctx.parsed / totalL2 * 100).toFixed(1) : 0;
+                return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+              }
             }
           }
         }
       }
-    }
+    });
   });
 }
 
