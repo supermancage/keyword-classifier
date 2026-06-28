@@ -422,12 +422,25 @@ const dataLabelsPlugin = {
           }
         } else if (chart.config.type === 'bar') {
           // 柱状图：显示在柱子顶部
-          const isGeoCity = chart.canvas && chart.canvas.id === 'chart-geo-city';
+          const canvasId = chart.canvas ? chart.canvas.id : '';
+          const isGeoCity = canvasId === 'chart-geo-city';
+          const isAppCost = canvasId === 'chart-appInteract'
+                         || canvasId === 'chart-appOpen'
+                         || canvasId === 'chart-appOrder';
+
           ctx.fillStyle = '#1f2937';
-          ctx.font = isGeoCity ? '9px Arial' : 'bold 11px Arial';
-          const barLabel = isGeoCity
-            ? value.toFixed(1) + '%'
-            : label;
+
+          let barLabel;
+          if (isGeoCity) {
+            ctx.font = '9px Arial';
+            barLabel = value.toFixed(1) + '%';
+          } else if (isAppCost) {
+            ctx.font = 'bold 11px Arial';
+            barLabel = '¥' + value.toFixed(2);
+          } else {
+            ctx.font = 'bold 11px Arial';
+            barLabel = label;
+          }
           ctx.fillText(barLabel, pos.x, pos.y - 5);
         }
         
