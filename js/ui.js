@@ -1758,18 +1758,18 @@ function renderCrossSummaryCards(metrics) {
 }
 
 function renderCrossCharts(dimVals, l2s, matrix, metricField) {
-  // 计算合计并排序
+  // 计算合计（始终按消耗cost降序排序）并排序
   const dimTotals = {};
   dimVals.forEach(dv => {
     let sum = 0;
-    l2s.forEach(l2 => sum += matrix[dv][l2][metricField] || 0);
+    l2s.forEach(l2 => sum += matrix[dv][l2].cost || 0);
     dimTotals[dv] = sum;
   });
 
   const l2Totals = {};
   l2s.forEach(l2 => {
     let sum = 0;
-    dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
+    dimVals.forEach(dv => sum += matrix[dv][l2].cost || 0);
     l2Totals[l2] = sum;
   });
 
@@ -1777,8 +1777,12 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
   const sortedDims = [...dimVals].sort((a, b) => dimTotals[b] - dimTotals[a]);
   const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
 
-  // 维度图表（已排序）
-  const dimData = sortedDims.map(dv => dimTotals[dv]);
+  // 维度图表（已按cost排序，数值仍用metricField）
+  const dimData = sortedDims.map(dv => {
+    let sum = 0;
+    l2s.forEach(l2 => sum += matrix[dv][l2][metricField] || 0);
+    return sum;
+  });
   const dimColors = sortedDims.map(dv => getCrossDimColor(dv));
 
   if (crossCharts.l1) crossCharts.l1.destroy();
@@ -1812,8 +1816,12 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
     }
   });
 
-  // 词包维度图表（已排序）
-  const l2Data = sortedL2s.map(l2 => l2Totals[l2]);
+  // 词包维度图表（已按cost排序，数值仍用metricField）
+  const l2Data = sortedL2s.map(l2 => {
+    let sum = 0;
+    dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
+    return sum;
+  });
   const totalL2 = l2Data.reduce((a, b) => a + b, 0);
 
   if (crossCharts.l2) crossCharts.l2.destroy();
@@ -1847,22 +1855,22 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
 }
 
 function renderCrossHeatmap(dimVals, l2s, matrix, metricField) {
-  // 计算每个维度值的合计值，用于排序
+  // 计算每个维度值的合计值（始终按消耗cost排序），用于排序
   const dimTotals = {};
   dimVals.forEach(dv => {
     let sum = 0;
     l2s.forEach(l2 => {
-      sum += matrix[dv][l2][metricField] || 0;
+      sum += matrix[dv][l2].cost || 0;
     });
     dimTotals[dv] = sum;
   });
 
-  // 计算每个词包的合计值，用于排序
+  // 计算每个词包的合计值（始终按消耗cost排序），用于排序
   const l2Totals = {};
   l2s.forEach(l2 => {
     let sum = 0;
     dimVals.forEach(dv => {
-      sum += matrix[dv][l2][metricField] || 0;
+      sum += matrix[dv][l2].cost || 0;
     });
     l2Totals[l2] = sum;
   });
