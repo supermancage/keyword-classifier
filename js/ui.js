@@ -32,6 +32,7 @@ let currentPage = 1;
 let charts = {};
 let analysisDim = 'l1';   // 分析板块分组维度: 'l1' 或 'adBizLine'
 let crossDim = 'l1';       // 交叉分析维度: 'l1' 或 'adBizLine'
+let hasAppDataGlobal = false; // 是否存在 APP 互动/打开/订单数据
 
 KC.State = {
   allResults: [],
@@ -338,13 +339,13 @@ function renderAll(results, ms) {
 
   // 渲染数据分析（如果有花费数据）
   const hasCostData = results.some(r => r.cost > 0);
-  const hasAppData = results.some(r => (r.appInteract || 0) > 0 || (r.appOpen || 0) > 0 || (r.appOrder || 0) > 0);
+  hasAppDataGlobal = results.some(r => (r.appInteract || 0) > 0 || (r.appOpen || 0) > 0 || (r.appOrder || 0) > 0);
   if (hasCostData) {
     document.getElementById('analysis-section').classList.remove('hidden');
     document.getElementById('cross-analysis-section').classList.remove('hidden');
-    // APP成本 Tab 显隐
+    // APP成本 Tab 始终可见（无数据时内部显示空状态提示）
     document.querySelectorAll('[data-analysis="appInteract"], [data-analysis="appOpen"], [data-analysis="appOrder"]').forEach(btn => {
-      btn.style.display = hasAppData ? '' : 'none';
+      btn.style.display = '';
     });
     try { renderCostAnalysis(); } catch(e) { console.warn('花费分析渲染跳过:', e.message); }
     initCrossFilters();
@@ -930,6 +931,21 @@ function renderAppInteractAnalysis() {
   const keys = Object.keys(metrics).sort((a, b) => metrics[b].appInteractCost - metrics[a].appInteractCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
 
+  // 无 APP 数据时显示空状态提示
+  if (!hasAppDataGlobal) {
+    if (analysisCharts.appInteract) { analysisCharts.appInteract.destroy(); analysisCharts.appInteract = null; }
+    const chartWrap = document.getElementById('chart-appInteract').parentElement;
+    chartWrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:14px;">暂无 APP 互动数据，请上传包含 APP 互动列的 Excel 文件</div>';
+    document.querySelector('#table-appInteract tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px;">暂无 APP 互动数据</td></tr>';
+    return;
+  }
+
+  // 恢复 canvas（如果之前被空状态替换）
+  const chartWrap = document.getElementById('chart-appInteract')?.parentElement;
+  if (chartWrap && !chartWrap.querySelector('canvas')) {
+    chartWrap.innerHTML = '<canvas id="chart-appInteract"></canvas>';
+  }
+
   if (analysisCharts.appInteract) analysisCharts.appInteract.destroy();
   analysisCharts.appInteract = new Chart(document.getElementById('chart-appInteract'), {
     type: 'bar',
@@ -983,6 +999,21 @@ function renderAppOpenAnalysis() {
   const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOpenCost - metrics[a].appOpenCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
 
+  // 无 APP 数据时显示空状态提示
+  if (!hasAppDataGlobal) {
+    if (analysisCharts.appOpen) { analysisCharts.appOpen.destroy(); analysisCharts.appOpen = null; }
+    const chartWrap = document.getElementById('chart-appOpen').parentElement;
+    chartWrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:14px;">暂无 APP 打开数据，请上传包含 APP 打开列的 Excel 文件</div>';
+    document.querySelector('#table-appOpen tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px;">暂无 APP 打开数据</td></tr>';
+    return;
+  }
+
+  // 恢复 canvas（如果之前被空状态替换）
+  const chartWrap = document.getElementById('chart-appOpen')?.parentElement;
+  if (chartWrap && !chartWrap.querySelector('canvas')) {
+    chartWrap.innerHTML = '<canvas id="chart-appOpen"></canvas>';
+  }
+
   if (analysisCharts.appOpen) analysisCharts.appOpen.destroy();
   analysisCharts.appOpen = new Chart(document.getElementById('chart-appOpen'), {
     type: 'bar',
@@ -1035,6 +1066,21 @@ function renderAppOrderAnalysis() {
   const metrics = calculateMetrics(analysisDim);
   const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOrderCost - metrics[a].appOrderCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
+
+  // 无 APP 数据时显示空状态提示
+  if (!hasAppDataGlobal) {
+    if (analysisCharts.appOrder) { analysisCharts.appOrder.destroy(); analysisCharts.appOrder = null; }
+    const chartWrap = document.getElementById('chart-appOrder').parentElement;
+    chartWrap.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:14px;">暂无 APP 订单数据，请上传包含 APP 订单列的 Excel 文件</div>';
+    document.querySelector('#table-appOrder tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px;">暂无 APP 订单数据</td></tr>';
+    return;
+  }
+
+  // 恢复 canvas（如果之前被空状态替换）
+  const chartWrap = document.getElementById('chart-appOrder')?.parentElement;
+  if (chartWrap && !chartWrap.querySelector('canvas')) {
+    chartWrap.innerHTML = '<canvas id="chart-appOrder"></canvas>';
+  }
 
   if (analysisCharts.appOrder) analysisCharts.appOrder.destroy();
   analysisCharts.appOrder = new Chart(document.getElementById('chart-appOrder'), {
