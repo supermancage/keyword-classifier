@@ -1843,30 +1843,32 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
 
     if (crossCharts.l2) crossCharts.l2.destroy();
     crossCharts.l2 = new Chart(canvasL2, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
         labels: sortedL2s,
         datasets: [{
+          label: getMetricLabel(metricField),
           data: l2Data,
           backgroundColor: sortedL2s.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
-          borderWidth: 2,
-          borderColor: '#fff'
+          borderRadius: 5
         }]
       },
       options: {
+        indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'right', labels: { font: { size: 11 }, padding: 10, usePointStyle: true } },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               label: ctx => {
-                const pct = totalL2 > 0 ? (ctx.parsed / totalL2 * 100).toFixed(1) : 0;
-                return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+                const pct = totalL2 > 0 ? (ctx.parsed.x / totalL2 * 100).toFixed(1) : 0;
+                return ` ${ctx.label}: ${ctx.parsed.x.toLocaleString()} (${pct}%)`;
               }
             }
           }
-        }
+        },
+        scales: { x: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
       }
     });
   });
