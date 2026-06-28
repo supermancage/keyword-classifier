@@ -46,7 +46,8 @@
           <div><span style="color:#8b5cf6;font-weight:600;">第五列</span>：APP互动（可选）</div>
           <div><span style="color:#ec4899;font-weight:600;">第六列</span>：APP打开（可选）</div>
           <div><span style="color:#0d9488;font-weight:600;">第七列</span>：APP订单（可选）</div>
-          <div><span style="color:#6366f1;font-weight:600;">第九列</span>：投放素材业务线（可选）</div>
+          <div><span style="color:#6366f1;font-weight:600;">第八列</span>：投放素材业务线（可选）</div>
+          <div><span style="color:#0ea5e9;font-weight:600;">第九列</span>：业务线（可选，由分类引擎自动识别）</div>
         </div>
         <div class="filename" id="filename-display"></div>
         <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onclick="event.stopPropagation()">
@@ -59,7 +60,7 @@
         <div><label>APP互动列 (可选)</label><input type="number" id="col-app-interact" value="5" min="1"></div>
         <div><label>APP打开列 (可选)</label><input type="number" id="col-app-open" value="6" min="1"></div>
         <div><label>APP订单列 (可选)</label><input type="number" id="col-app-order" value="7" min="1"></div>
-        <div><label>投放素材业务线列 (可选)</label><input type="number" id="col-ad-biz-line" value="9" min="1"></div>
+        <div><label>投放素材业务线列 (可选)</label><input type="number" id="col-ad-biz-line" value="8" min="1"></div>
         <div><label>从第几行开始读取</label><input type="number" id="row-start" value="2" min="1"></div>
       </div>
     </div>
@@ -244,6 +245,9 @@
             <option value="ctr">CTR</option>
             <option value="cpc">CPC</option>
             <option value="efficiency">效率评分</option>
+            <option value="appInteractCost">📱 APP互动成本</option>
+            <option value="appOpenCost">📲 APP打开成本</option>
+            <option value="appOrderCost">🛒 APP订单成本</option>
           </select>
           <button onclick="clearCrossFilters()" style="padding:4px 12px;border:1px solid #d1d5db;border-radius:6px;background:white;font-size:12px;cursor:pointer;">🗑 清除筛选</button>
         </div>
@@ -285,6 +289,9 @@
                 <th>点击</th>
                 <th>CTR</th>
                 <th>CPC</th>
+                <th>APP互动成本</th>
+                <th>APP打开成本</th>
+                <th>APP订单成本</th>
                 <th>效率评分</th>
               </tr>
             </thead>

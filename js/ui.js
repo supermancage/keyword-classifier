@@ -1625,12 +1625,15 @@ function calculateCrossMetrics() {
 
     const key = dimVal + '|||' + l2;
     if (!metrics[key]) {
-      metrics[key] = { dimVal, l2, count: 0, cost: 0, impression: 0, click: 0 };
+      metrics[key] = { dimVal, l2, count: 0, cost: 0, impression: 0, click: 0, appInteract: 0, appOpen: 0, appOrder: 0 };
     }
     metrics[key].count++;
     metrics[key].cost += r.cost || 0;
     metrics[key].impression += r.impression || 0;
     metrics[key].click += r.click || 0;
+    metrics[key].appInteract += r.appInteract || 0;
+    metrics[key].appOpen += r.appOpen || 0;
+    metrics[key].appOrder += r.appOrder || 0;
   });
 
   // 计算衍生指标
@@ -1638,6 +1641,9 @@ function calculateCrossMetrics() {
     m.ctr = m.impression > 0 ? (m.click / m.impression * 100) : 0;
     m.cpc = m.click > 0 ? (m.cost / m.click) : 0;
     m.efficiency = m.cpc > 0 ? (m.ctr / m.cpc * 100) : 0;
+    m.appInteractCost = m.appInteract > 0 ? (m.cost / m.appInteract) : 0;
+    m.appOpenCost = m.appOpen > 0 ? (m.cost / m.appOpen) : 0;
+    m.appOrderCost = m.appOrder > 0 ? (m.cost / m.appOrder) : 0;
   });
 
   return metrics;
@@ -1667,7 +1673,7 @@ function renderCrossAnalysis() {
     matrix[dv] = {};
     l2s.forEach(l2 => {
       const key = dv + '|||' + l2;
-      matrix[dv][l2] = metrics[key] || { dimVal: dv, l2, count: 0, cost: 0, impression: 0, click: 0, ctr: 0, cpc: 0, efficiency: 0 };
+      matrix[dv][l2] = metrics[key] || { dimVal: dv, l2, count: 0, cost: 0, impression: 0, click: 0, ctr: 0, cpc: 0, efficiency: 0, appInteract: 0, appOpen: 0, appOrder: 0, appInteractCost: 0, appOpenCost: 0, appOrderCost: 0 };
     });
   });
 
@@ -1690,8 +1696,14 @@ function renderCrossSummaryCards(metrics) {
   const totalCost = values.reduce((sum, m) => sum + m.cost, 0);
   const totalImp = values.reduce((sum, m) => sum + m.impression, 0);
   const totalClick = values.reduce((sum, m) => sum + m.click, 0);
+  const totalAppInteract = values.reduce((sum, m) => sum + (m.appInteract || 0), 0);
+  const totalAppOpen = values.reduce((sum, m) => sum + (m.appOpen || 0), 0);
+  const totalAppOrder = values.reduce((sum, m) => sum + (m.appOrder || 0), 0);
   const avgCtr = totalImp > 0 ? (totalClick / totalImp * 100) : 0;
   const avgCpc = totalClick > 0 ? (totalCost / totalClick) : 0;
+  const avgAppInteractCost = totalAppInteract > 0 ? (totalCost / totalAppInteract) : 0;
+  const avgAppOpenCost = totalAppOpen > 0 ? (totalCost / totalAppOpen) : 0;
+  const avgAppOrderCost = totalAppOrder > 0 ? (totalCost / totalAppOrder) : 0;
   
   const cards = [
     { label: '关键词数', value: totalCount.toLocaleString(), color: '#1a73e8' },
@@ -1700,6 +1712,9 @@ function renderCrossSummaryCards(metrics) {
     { label: '总点击', value: totalClick.toLocaleString(), color: '#10b981' },
     { label: '平均CTR', value: avgCtr.toFixed(2) + '%', color: '#f59e0b' },
     { label: '平均CPC', value: '¥' + avgCpc.toFixed(2), color: '#8b5cf6' },
+    { label: '平均APP互动成本', value: avgAppInteractCost > 0 ? '¥' + avgAppInteractCost.toFixed(2) : '-', color: '#8b5cf6' },
+    { label: '平均APP打开成本', value: avgAppOpenCost > 0 ? '¥' + avgAppOpenCost.toFixed(2) : '-', color: '#ec4899' },
+    { label: '平均APP订单成本', value: avgAppOrderCost > 0 ? '¥' + avgAppOrderCost.toFixed(2) : '-', color: '#0d9488' },
   ];
   
   document.getElementById('cross-summary-cards').innerHTML = cards.map(c => `
@@ -1934,6 +1949,9 @@ function renderCrossDetailTable(metrics) {
   const totalCost = values.reduce((sum, m) => sum + m.cost, 0);
   const totalImp = values.reduce((sum, m) => sum + m.impression, 0);
   const totalClick = values.reduce((sum, m) => sum + m.click, 0);
+  const totalAppInteract = values.reduce((sum, m) => sum + (m.appInteract || 0), 0);
+  const totalAppOpen = values.reduce((sum, m) => sum + (m.appOpen || 0), 0);
+  const totalAppOrder = values.reduce((sum, m) => sum + (m.appOrder || 0), 0);
 
   // 渲染动态表头（带排序指示器）
   const headers = [
@@ -1945,6 +1963,9 @@ function renderCrossDetailTable(metrics) {
     { field: 'click', label: '点击' },
     { field: 'ctr', label: 'CTR' },
     { field: 'cpc', label: 'CPC' },
+    { field: 'appInteractCost', label: 'APP互动成本' },
+    { field: 'appOpenCost', label: 'APP打开成本' },
+    { field: 'appOrderCost', label: 'APP订单成本' },
     { field: 'efficiency', label: '效率评分' }
   ];
 
@@ -1980,6 +2001,9 @@ function renderCrossDetailTable(metrics) {
       </td>
       <td class="num">${m.ctr.toFixed(2)}%</td>
       <td class="num">¥${m.cpc.toFixed(2)}</td>
+      <td class="num" style="color:#8b5cf6">${m.appInteract > 0 ? '¥' + m.appInteractCost.toFixed(2) : '-'}</td>
+      <td class="num" style="color:#ec4899">${m.appOpen > 0 ? '¥' + m.appOpenCost.toFixed(2) : '-'}</td>
+      <td class="num" style="color:#0d9488">${m.appOrder > 0 ? '¥' + m.appOrderCost.toFixed(2) : '-'}</td>
       <td class="num" style="color:${m.efficiency >= 10 ? '#10b981' : m.efficiency >= 5 ? '#f59e0b' : '#ef4444'};font-weight:600">
         ${m.efficiency.toFixed(1)}
       </td>
@@ -1996,6 +2020,9 @@ function renderCrossDetailTable(metrics) {
       <td class="num">${totalClick.toLocaleString()}</td>
       <td class="num">${totalImp > 0 ? (totalClick/totalImp*100).toFixed(2) : 0}%</td>
       <td class="num">¥${totalClick > 0 ? (totalCost/totalClick).toFixed(2) : 0}</td>
+      <td class="num">${totalAppInteract > 0 ? '¥' + (totalCost/totalAppInteract).toFixed(2) : '-'}</td>
+      <td class="num">${totalAppOpen > 0 ? '¥' + (totalCost/totalAppOpen).toFixed(2) : '-'}</td>
+      <td class="num">${totalAppOrder > 0 ? '¥' + (totalCost/totalAppOrder).toFixed(2) : '-'}</td>
       <td></td>
     </tr>
   `;
@@ -2012,8 +2039,8 @@ function getHeatmapColor(intensity, metricField) {
   } else if (metricField === 'ctr') {
     // CTR：蓝->绿
     return `rgba(59, 130, 246, ${0.15 + intensity * 0.55})`;
-  } else if (metricField === 'cpc') {
-    // CPC：红（高CPC=红色）
+  } else if (metricField === 'cpc' || metricField === 'appInteractCost' || metricField === 'appOpenCost' || metricField === 'appOrderCost') {
+    // 成本类：红（高成本=红色）
     return `rgba(239, 68, 68, ${0.15 + intensity * 0.55})`;
   } else {
     // 默认：蓝色渐变
@@ -2029,7 +2056,10 @@ function getMetricLabel(metricField) {
     click: '点击量',
     ctr: 'CTR',
     cpc: 'CPC',
-    efficiency: '效率评分'
+    efficiency: '效率评分',
+    appInteractCost: 'APP互动成本',
+    appOpenCost: 'APP打开成本',
+    appOrderCost: 'APP订单成本'
   };
   return labels[metricField] || metricField;
 }
@@ -2040,6 +2070,9 @@ function formatMetricValue(value, metricField) {
   switch (metricField) {
     case 'cost':
     case 'cpc':
+    case 'appInteractCost':
+    case 'appOpenCost':
+    case 'appOrderCost':
       return '¥' + value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     case 'ctr':
       return value.toFixed(2) + '%';
