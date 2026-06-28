@@ -966,7 +966,7 @@ function renderEfficiencyAnalysis() {
 
 function renderAppInteractAnalysis() {
   const metrics = calculateMetrics(analysisDim);
-  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appInteractCost - metrics[a].appInteractCost);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[a].appInteractCost - metrics[b].appInteractCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
 
   // 无 APP 数据时显示空状态提示
@@ -1034,7 +1034,7 @@ function renderAppInteractAnalysis() {
 
 function renderAppOpenAnalysis() {
   const metrics = calculateMetrics(analysisDim);
-  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOpenCost - metrics[a].appOpenCost);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[a].appOpenCost - metrics[b].appOpenCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
 
   // 无 APP 数据时显示空状态提示
@@ -1102,7 +1102,7 @@ function renderAppOpenAnalysis() {
 
 function renderAppOrderAnalysis() {
   const metrics = calculateMetrics(analysisDim);
-  const keys = Object.keys(metrics).sort((a, b) => metrics[b].appOrderCost - metrics[a].appOrderCost);
+  const keys = Object.keys(metrics).sort((a, b) => metrics[a].appOrderCost - metrics[b].appOrderCost);
   const totalCost = Object.values(metrics).reduce((sum, m) => sum + m.cost, 0);
 
   // 无 APP 数据时显示空状态提示
@@ -1782,11 +1782,20 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
     l2Totals[l2] = sum;
   });
 
-  // 按合计值降序排序
-  const sortedDims = [...dimVals].sort((a, b) => dimTotals[b] - dimTotals[a]);
-  const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  // 成本类指标升序（低排前），其余指标降序（高排前）
+  const costMetrics = new Set(['appInteractCost', 'appOpenCost', 'appOrderCost', 'cpc']);
+  const isCostMetric = costMetrics.has(metricField);
+  const sortCmp = isCostMetric
+    ? ((a, b) => dimTotals[a] - dimTotals[b])
+    : ((a, b) => dimTotals[b] - dimTotals[a]);
+  const sortCmpL2 = isCostMetric
+    ? ((a, b) => l2Totals[a] - l2Totals[b])
+    : ((a, b) => l2Totals[b] - l2Totals[a]);
 
-  // 维度图表（已按cost排序，数值仍用metricField）
+  const sortedDims = [...dimVals].sort(sortCmp);
+  const sortedL2s = [...l2s].sort(sortCmpL2);
+
+  // 维度图表（数值仍用metricField）
   const dimData = sortedDims.map(dv => {
     let sum = 0;
     l2s.forEach(l2 => sum += matrix[dv][l2][metricField] || 0);
@@ -1895,9 +1904,18 @@ function renderCrossHeatmap(dimVals, l2s, matrix, metricField) {
     l2Totals[l2] = sum;
   });
 
-  // 按合计值降序排序
-  const sortedDims = [...dimVals].sort((a, b) => dimTotals[b] - dimTotals[a]);
-  const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
+  // 成本类指标升序（低排前），其余指标降序（高排前）
+  const costMetrics = new Set(['appInteractCost', 'appOpenCost', 'appOrderCost', 'cpc']);
+  const isCostMetric = costMetrics.has(metricField);
+  const sortCmp = isCostMetric
+    ? ((a, b) => dimTotals[a] - dimTotals[b])
+    : ((a, b) => dimTotals[b] - dimTotals[a]);
+  const sortCmpL2 = isCostMetric
+    ? ((a, b) => l2Totals[a] - l2Totals[b])
+    : ((a, b) => l2Totals[b] - l2Totals[a]);
+
+  const sortedDims = [...dimVals].sort(sortCmp);
+  const sortedL2s = [...l2s].sort(sortCmpL2);
 
   // 计算所有数据的最大值用于颜色映射
   let maxValue = 0;
