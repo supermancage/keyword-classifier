@@ -1782,6 +1782,14 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
     l2Totals[l2] = sum;
   });
 
+  // l2CostData（各词包消耗合计，用于组合图柱状图）
+  const l2CostData = {};
+  l2s.forEach(l2 => {
+    let sum = 0;
+    dimVals.forEach(dv => sum += matrix[dv][l2].cost || 0);
+    l2CostData[l2] = sum;
+  });
+
   // 成本类指标升序（低排前），其余指标降序（高排前）
   const costMetrics = new Set(['appInteractCost', 'appOpenCost', 'appOrderCost', 'cpc']);
   const isCostMetric = costMetrics.has(metricField);
@@ -1793,7 +1801,8 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
     : ((a, b) => l2Totals[b] - l2Totals[a]);
 
   const sortedDims = [...dimVals].sort(sortCmp);
-  const sortedL2s = [...l2s].sort(sortCmpL2);
+  // 词包始终按消耗降序排列
+  const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
 
   // 维度图表（数值仍用metricField）
   const dimData = sortedDims.map(dv => {
@@ -1802,14 +1811,6 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
     return sum;
   });
   const dimColors = sortedDims.map(dv => getCrossDimColor(dv));
-
-  // 词包维度图表数据（已按cost排序，数值仍用metricField）
-  const l2Data = sortedL2s.map(l2 => {
-    let sum = 0;
-    dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
-    return sum;
-  });
-  const totalL2 = l2Data.reduce((a, b) => a + b, 0);
 
   // 延迟到下一帧渲染，确保父容器已解除 hidden 状态且 canvas 有正确尺寸
   requestAnimationFrame(() => {
@@ -1855,29 +1856,58 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
       type: 'bar',
       data: {
         labels: sortedL2s,
-        datasets: [{
-          label: getMetricLabel(metricField),
-          data: l2Data,
-          backgroundColor: sortedL2s.map((_, i) => L2_COLORS[i % L2_COLORS.length]),
-          borderRadius: 5
-        }]
+        datasets: [
+          {
+            label: '消耗',
+            data: sortedL2s.map(l2 => l2CostData[l2]),
+            backgroundColor: '#ef444420',
+            borderColor: '#ef4444',
+            borderWidth: 1,
+            borderRadius: 5,
+            yAxisID: 'y',
+            order: 1
+          },
+          ...(isCostMetric && metricField !== 'cpc' ? [{
+            label: getMetricLabel(metricField),
+            data: sortedL2s.map(l2 => {
+              let sum = 0;
+              dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
+              return sum;
+            }),
+            type: 'line',
+            borderColor: '#6366f1',
+            backgroundColor: '#6366f120',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '#6366f1',
+            tension: 0.3,
+            yAxisID: 'y1',
+            order: 0
+          }] : [])
+        ]
       },
       options: {
-        indexAxis: 'y',
+        indexAxis: 'x',
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => {
-                const pct = totalL2 > 0 ? (ctx.parsed.x / totalL2 * 100).toFixed(1) : 0;
-                return ` ${ctx.label}: ${ctx.parsed.x.toLocaleString()} (${pct}%)`;
-              }
-            }
-          }
+          legend: { display: true, position: 'top' }
         },
-        scales: { x: { beginAtZero: true, ticks: { callback: v => formatMetricValue(v, metricField) } } }
+        scales: {
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: '消耗 (¥)' },
+            beginAtZero: true
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: '成本 (¥)' },
+            beginAtZero: true,
+            grid: { drawOnChartArea: false }
+          }
+        }
       }
     });
   });
