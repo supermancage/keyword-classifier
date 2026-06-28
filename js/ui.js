@@ -1742,7 +1742,17 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
   const sortedL2s = [...l2s].sort((a, b) => l2Totals[b] - l2Totals[a]);
 
   // 维度图表（数值仍用metricField）
+  // 成本比值类指标（appInteractCost/appOpenCost/appOrderCost）不能直接跨词包求和，需先汇总量再除
   const dimData = sortedDims.map(dv => {
+    if (isCostMetric && metricField !== 'cpc') {
+      const appField = metricField.replace('Cost', '');
+      let totalCost = 0, totalApp = 0;
+      l2s.forEach(l2 => {
+        totalCost += matrix[dv][l2].cost || 0;
+        totalApp += matrix[dv][l2][appField] || 0;
+      });
+      return totalApp > 0 ? totalCost / totalApp : 0;
+    }
     let sum = 0;
     l2s.forEach(l2 => sum += matrix[dv][l2][metricField] || 0);
     return sum;
