@@ -632,17 +632,31 @@ let analysisCharts = {};
 
 // ── 维度辅助函数 ──
 function getDimHeader() {
-  return analysisDim === 'adBizLine' ? '投放素材业务线' : '一级分类';
+  if (analysisDim === 'adBizLine') return '投放素材业务线';
+  if (analysisDim === 'l2') return '词包（二级分类）';
+  return '一级分类';
 }
 
 function getDimColor(key) {
   if (analysisDim === 'adBizLine') return '#6366f1';
+  if (analysisDim === 'l2') {
+    // 稳定的字符串哈希 → 取模 L2_COLORS，保证同一词包颜色不变
+    var hash = 0;
+    for (var i = 0; i < key.length; i++) {
+      hash = ((hash << 5) - hash) + key.charCodeAt(i);
+      hash |= 0;
+    }
+    return L2_COLORS[Math.abs(hash) % L2_COLORS.length];
+  }
   return L1_META[key]?.color || '#999';
 }
 
 function renderDimBadge(key) {
   if (analysisDim === 'adBizLine') {
     return `<span class="l1-badge unclassified">${escHtml(key)}</span>`;
+  }
+  if (analysisDim === 'l2') {
+    return `<span class="l2-tag">${escHtml(key)}</span>`;
   }
   const meta = L1_META[key];
   return `<span class="l1-badge ${meta?.cls || ''}">${escHtml(key)}</span>`;
@@ -685,6 +699,8 @@ function calculateMetrics(dim) {
     let groupKey;
     if (dim === 'adBizLine') {
       groupKey = r.adBizLine || '未标注';
+    } else if (dim === 'l2') {
+      groupKey = r.l2 || '未分类';
     } else {
       groupKey = r.l1 || '未分类';
     }
