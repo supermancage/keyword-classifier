@@ -108,7 +108,7 @@
         <button class="tab-btn active" onclick="switchAnalysisTab('cost')" data-analysis="cost">💰 花费分析</button>
         <button class="tab-btn" onclick="switchAnalysisTab('impression')" data-analysis="impression">👁 曝光分析</button>
         <button class="tab-btn" onclick="switchAnalysisTab('click')" data-analysis="click">🖱 点击分析</button>
-        <button class="tab-btn" onclick="switchAnalysisTab('efficiency')" data-analysis="efficiency">📈 效率分析</button>
+
         <button class="tab-btn" onclick="switchAnalysisTab('appInteract')" data-analysis="appInteract">📱 APP互动成本</button>
         <button class="tab-btn" onclick="switchAnalysisTab('appOpen')" data-analysis="appOpen">📲 APP打开成本</button>
         <button class="tab-btn" onclick="switchAnalysisTab('appOrder')" data-analysis="appOrder">🛒 APP订单成本</button>
@@ -153,18 +153,7 @@
         </div>
       </div>
       
-      <!-- 效率分析 -->
-      <div id="analysis-efficiency" class="analysis-content hidden">
-        <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-efficiency"></canvas></div>
-        <div class="tbl-wrap">
-          <table id="table-efficiency">
-            <thead>
-              <tr><th class="th-dim">一级分类</th><th>关键词数</th><th>CTR</th><th>CPC</th><th>花费占比</th><th>曝光占比</th><th>点击占比</th><th>效率评分</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
+
       <!-- APP互动成本分析 -->
       <div id="analysis-appInteract" class="analysis-content hidden">
         <div class="chart-wrap" style="height:300px;margin-bottom:20px;"><canvas id="chart-appInteract"></canvas></div>
@@ -243,7 +232,7 @@
             <option value="click">点击量</option>
             <option value="ctr">CTR</option>
             <option value="cpc">CPC</option>
-            <option value="efficiency">效率评分</option>
+
             <option value="appInteractCost">📱 APP互动成本</option>
             <option value="appOpenCost">📲 APP打开成本</option>
             <option value="appOrderCost">🛒 APP订单成本</option>
@@ -291,7 +280,6 @@
                 <th>APP互动成本</th>
                 <th>APP打开成本</th>
                 <th>APP订单成本</th>
-                <th>效率评分</th>
               </tr>
             </thead>
             <tbody></tbody>
@@ -441,136 +429,6 @@
           <h3>🏢 城市 TOP50</h3>
           <div class="chart-wrap"><canvas id="chart-geo-city"></canvas></div>
         </div>
-      </div>
-    </div>
-
-    <!-- 词包生成器 -->
-    <div class="card mb-4" id="pkg-section">
-      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-        <span>📦 词包生成器</span>
-        <span style="font-size:12px;color:#6b7280;" id="pkg-hint">分类后可生成词包组合</span>
-      </div>
-
-      <!-- 第一步：筛选范围 -->
-      <div style="background:#f0f7ff;border-radius:10px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:600;color:#1a73e8;margin-bottom:10px;">① 筛选范围 <span style="font-weight:400;color:#6b7280;">— 选哪些业务线、意图词包和城市参与组合</span></div>
-        <div style="margin-bottom:10px;">
-          <span style="font-size:12px;color:#6b7280;font-weight:500;">业务线：</span>
-          <div id="pkg-filter-l1" style="display:inline-flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
-            <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
-          </div>
-        </div>
-        <div style="margin-bottom:10px;">
-          <span style="font-size:12px;color:#6b7280;font-weight:500;">意图词包：</span>
-          <div id="pkg-filter-l2" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="color:#9ca3af;font-size:12px;">（请先选择业务线）</span>
-          </div>
-        </div>
-        <div>
-          <span style="font-size:12px;color:#6b7280;font-weight:500;">城市：</span>
-          <div id="pkg-filter-city" style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;">
-            <span style="color:#9ca3af;font-size:12px;">（请先分类）</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 第二步：组合维度 -->
-      <div style="background:#fefce8;border-radius:10px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:600;color:#92400e;margin-bottom:10px;">② 组合维度 <span style="font-weight:400;color:#6b7280;">— 按什么指标来划分词包</span></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #fbbf24;background:#fff;cursor:pointer;transition:all .15s;">
-            <input type="radio" name="pkg-dim" value="cost" checked> <span style="color:#ef4444;font-weight:600;">💰 按消耗</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #d1d5db;background:#fff;cursor:pointer;transition:all .15s;">
-            <input type="radio" name="pkg-dim" value="impression"> <span style="color:#3b82f6;font-weight:600;">👁 按展示</span>
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;padding:7px 16px;border-radius:20px;border:2px solid #d1d5db;background:#fff;cursor:pointer;transition:all .15s;">
-            <input type="radio" name="pkg-dim" value="click"> <span style="color:#10b981;font-weight:600;">🖱 按点击</span>
-          </label>
-        </div>
-        <div style="margin-top:10px;font-size:12px;color:#6b7280;line-height:1.7;">
-          算法会基于所选维度，在每条业务线×意图词包下自动寻找<strong>最优分档</strong>（Jenks 自然断点法），让同一档内的关键词指标尽量均匀，不同档之间差异最大化。
-        </div>
-      </div>
-
-      <!-- 第三步：参数 -->
-      <div style="background:#f0fdf4;border-radius:10px;padding:16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:600;color:#065f46;margin-bottom:10px;">③ 参数设置</div>
-        <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-            <span style="color:#6b7280;">关键词数量上限：</span>
-            <input type="number" id="pkg-max" value="1000" min="10" max="50000" style="width:80px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-            <span style="color:#6b7280;">最小词包关键词数：</span>
-            <input type="number" id="pkg-min-size" value="3" min="1" max="100" style="width:60px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;font-size:13px;">
-            <span style="color:#6b7280;">最大分档数：</span>
-            <select id="pkg-max-tiers" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;">
-              <option value="2">2 档（高/低）</option>
-              <option value="3" selected>3 档（高/中/低）</option>
-              <option value="4">4 档</option>
-              <option value="5">5 档</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div style="text-align:center;margin-bottom:14px;">
-        <button class="btn btn-primary" style="padding:10px 32px;font-size:14px;" onclick="generatePackages()">🧠 智能生成词包</button>
-      </div>
-
-      <!-- 词包统计 -->
-      <div id="pkg-stats" class="hidden" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px;">
-        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-count" style="font-size:24px;">0</div><div class="label">词包总数</div></div>
-        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-kw" style="font-size:24px;color:#1a73e8;">0</div><div class="label">覆盖关键词</div></div>
-        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-avg" style="font-size:24px;color:#8b5cf6;">0</div><div class="label">平均词包大小</div></div>
-        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-cost" style="font-size:24px;color:#ef4444;">¥0</div><div class="label">总消耗</div></div>
-        <div class="stat-card" style="padding:12px;"><div class="num" id="pkg-stat-optimality" style="font-size:24px;color:#10b981;">-</div><div class="label">组内均匀度</div></div>
-      </div>
-
-      <!-- 词包表格 -->
-      <div id="pkg-table-wrap" class="hidden">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" id="pkg-search" placeholder="搜索词包…" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;width:200px;outline:none;" oninput="renderPkgTable(1)">
-            <select id="pkg-sort" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:var(--card);" onchange="renderPkgTable(1)">
-              <option value="kw-desc">关键词数 ↓</option>
-              <option value="kw-asc">关键词数 ↑</option>
-              <option value="cost-desc">消耗 ↓</option>
-              <option value="cost-asc">消耗 ↑</option>
-              <option value="impression-desc">曝光 ↓</option>
-              <option value="impression-asc">曝光 ↑</option>
-              <option value="click-desc">点击 ↓</option>
-              <option value="click-asc">点击 ↑</option>
-              <option value="variance-desc">档内离散 ↓</option>
-              <option value="variance-asc">档内离散 ↑</option>
-            </select>
-          </div>
-          <button class="btn btn-outline" style="padding:6px 14px;font-size:12px;" onclick="exportPackages()">📥 导出词包 Excel</button>
-        </div>
-        <div class="tbl-wrap">
-          <table id="pkg-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>词包名称</th>
-                <th>档位</th>
-                <th>关键词数</th>
-                <th>总消耗</th>
-                <th>总曝光</th>
-                <th>总点击</th>
-                <th>平均CPC</th>
-                <th>平均CTR</th>
-                <th>档内离散度</th>
-                <th>关键词示例</th>
-              </tr>
-            </thead>
-            <tbody id="pkg-tbody"></tbody>
-          </table>
-        </div>
-        <div class="pagination" id="pkg-pagination"></div>
       </div>
     </div>
 
