@@ -1807,9 +1807,13 @@ function renderCrossCharts(dimVals, l2s, matrix, metricField) {
           ...(isCostMetric && metricField !== 'cpc' ? [{
             label: getMetricLabel(metricField),
             data: sortedL2s.map(l2 => {
-              let sum = 0;
-              dimVals.forEach(dv => sum += matrix[dv][l2][metricField] || 0);
-              return sum;
+              const appField = metricField.replace('Cost', '');
+              let totalCost = 0, totalApp = 0;
+              dimVals.forEach(dv => {
+                totalCost += matrix[dv][l2].cost || 0;
+                totalApp += matrix[dv][l2][appField] || 0;
+              });
+              return totalApp > 0 ? totalCost / totalApp : 0;
             }),
             type: 'line',
             borderColor: '#6366f1',
